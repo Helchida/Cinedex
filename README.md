@@ -1,4 +1,4 @@
-# cinedex
+# Cinedex
 
 A new Flutter project.
 
