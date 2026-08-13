@@ -9,8 +9,15 @@ class CinedexApp extends ConsumerWidget {
   const CinedexApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final themeMode =
+        ref.watch(themeModeProvider);
+
+    final router =
+        ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       title: 'Cinedex',
@@ -21,7 +28,7 @@ class CinedexApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
 
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }

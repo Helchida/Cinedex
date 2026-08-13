@@ -5,8 +5,7 @@ import '../../series/models/season.dart';
 import '../../series/models/tv_show.dart';
 import '../providers/media_details_provider.dart';
 import 'season_episodes_page.dart';
-import '../../library/models/followed_series.dart';
-import '../../library/providers/followed_series_provider.dart';
+import '../../library/providers/library_provider.dart';
 import '../../watchlist/providers/watch_progress_provider.dart';
 
 class TvShowDetailsPage extends ConsumerWidget {
@@ -413,43 +412,71 @@ class _Actions extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
-    final isFollowed = ref.watch(
-      followedSeriesProvider.select(
-        (series) => series.any(
-          (item) => item.id == tvShow.id,
-        ),
-      ),
+    final libraryAsync = ref.watch(
+      librarySeriesProvider,
     );
+
+    final isFollowed = libraryAsync.maybeWhen(
+      data: (series) {
+        return series.any(
+          (item) => item['tmdb_id'] == tvShow.id,
+        );
+      },
+      orElse: () => false,
+    );
+
+    final isLoading = libraryAsync.isLoading;
 
     return Row(
       children: [
         Expanded(
           child: FilledButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              // TODO : marquer tous les épisodes comme vus.
+            },
             icon: const Icon(Icons.check),
             label: const Text('Vu'),
           ),
         ),
+
         const SizedBox(width: 12),
+
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {
-              final notifier = ref.read(
-                followedSeriesProvider.notifier,
-              );
+            onPressed: isLoading
+                ? null
+                : () async {
+                    try {
+                      final notifier = ref.read(
+                        watchProgressProvider.notifier,
+                      );
 
-              if (isFollowed) {
-                notifier.remove(tvShow.id);
-              } else {
-                notifier.add(
-                  FollowedSeries(
-                    id: tvShow.id,
-                    name: tvShow.name,
-                    posterPath: tvShow.posterPath,
-                  ),
-                );
-              }
-            },
+                      if (isFollowed) {
+                        await notifier.removeSeriesFromLibrary(
+                          tvShowId: tvShow.id,
+                        );
+                      } else {
+                        await notifier.addSeriesToLibrary(
+                          tvShowId: tvShow.id,
+                          name: tvShow.name,
+                          posterPath: tvShow.posterPath,
+                        );
+                      }
+                    } catch (error) {
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Impossible de modifier la bibliothèque : $error',
+                          ),
+                        ),
+                      );
+                    }
+                  },
             icon: Icon(
               isFollowed
                   ? Icons.bookmark

@@ -35,7 +35,9 @@ class MovieDetailsPage extends ConsumerWidget {
           );
         },
         data: (movie) {
-          return _MovieDetailsContent(movie: movie);
+          return _MovieDetailsContent(
+            movie: movie,
+          );
         },
       ),
     );
@@ -72,15 +74,21 @@ class _MovieDetailsContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Header(movie: movie),
+                _Header(
+                  movie: movie,
+                ),
                 const SizedBox(height: 24),
                 _Actions(
-                  movieId: movie.id,
+                  movie: movie,
                 ),
                 const SizedBox(height: 28),
-                _Genres(movie: movie),
+                _Genres(
+                  movie: movie,
+                ),
                 const SizedBox(height: 24),
-                _Overview(movie: movie),
+                _Overview(
+                  movie: movie,
+                ),
               ],
             ),
           ),
@@ -118,6 +126,22 @@ class _Backdrop extends StatelessWidget {
         Image.network(
           'https://image.tmdb.org/t/p/w780$path',
           fit: BoxFit.cover,
+          errorBuilder: (
+            context,
+            error,
+            stackTrace,
+          ) {
+            return Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white,
+                  size: 64,
+                ),
+              ),
+            );
+          },
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -148,7 +172,8 @@ class _Header extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (movie.posterPath != null)
+        if (movie.posterPath != null &&
+            movie.posterPath!.isNotEmpty)
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(
@@ -156,20 +181,44 @@ class _Header extends StatelessWidget {
               width: 120,
               height: 180,
               fit: BoxFit.cover,
+              errorBuilder: (
+                context,
+                error,
+                stackTrace,
+              ) {
+                return Container(
+                  width: 120,
+                  height: 180,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  child: const Icon(
+                    Icons.broken_image_outlined,
+                  ),
+                );
+              },
             ),
           ),
+
         const SizedBox(width: 20),
+
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               Text(
                 movie.title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
+
               const SizedBox(height: 12),
+
               if (movie.voteAverage != null)
                 Row(
                   children: [
@@ -180,11 +229,14 @@ class _Header extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      movie.voteAverage!.toStringAsFixed(1),
+                      movie.voteAverage!
+                          .toStringAsFixed(1),
                     ),
                   ],
                 ),
+
               const SizedBox(height: 8),
+
               Text(
                 [
                   if (movie.releaseDate != null)
@@ -203,10 +255,10 @@ class _Header extends StatelessWidget {
 
 class _Actions extends ConsumerWidget {
   const _Actions({
-    required this.movieId,
+    required this.movie,
   });
 
-  final int movieId;
+  final Movie movie;
 
   @override
   Widget build(
@@ -215,7 +267,7 @@ class _Actions extends ConsumerWidget {
   ) {
     final isWatched = ref.watch(
       watchProgressProvider.select(
-        (state) => state.movies.containsKey(movieId),
+        (state) => state.movies.containsKey(movie.id),
       ),
     );
 
@@ -226,8 +278,15 @@ class _Actions extends ConsumerWidget {
               ? OutlinedButton.icon(
                   onPressed: () {
                     ref
-                        .read(watchProgressProvider.notifier)
-                        .toggleMovie(movieId);
+                        .read(
+                          watchProgressProvider.notifier,
+                        )
+                        .toggleMovie(
+                          tmdbMovieId: movie.id,
+                          title: movie.title,
+                          posterPath: movie.posterPath,
+                          releaseDate: movie.releaseDate,
+                        );
                   },
                   icon: const Icon(Icons.check),
                   label: const Text('Vu'),
@@ -235,11 +294,20 @@ class _Actions extends ConsumerWidget {
               : FilledButton.icon(
                   onPressed: () {
                     ref
-                        .read(watchProgressProvider.notifier)
-                        .toggleMovie(movieId);
+                        .read(
+                          watchProgressProvider.notifier,
+                        )
+                        .toggleMovie(
+                          tmdbMovieId: movie.id,
+                          title: movie.title,
+                          posterPath: movie.posterPath,
+                          releaseDate: movie.releaseDate,
+                        );
                   },
                   icon: const Icon(Icons.check),
-                  label: const Text('Marquer comme vu'),
+                  label: const Text(
+                    'Marquer comme vu',
+                  ),
                 ),
         ),
         const SizedBox(width: 12),
@@ -291,23 +359,33 @@ class _Overview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (movie.overview == null || movie.overview!.isEmpty) {
+    if (movie.overview == null ||
+        movie.overview!.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         Text(
           'Synopsis',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
+
         const SizedBox(height: 10),
+
         Text(
           movie.overview!,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(
                 height: 1.5,
               ),
         ),

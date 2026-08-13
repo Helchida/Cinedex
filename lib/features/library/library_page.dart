@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import './providers/followed_series_provider.dart';
 import './providers/library_provider.dart';
+import './providers/next_episode_provider.dart';
 import '../details/pages/season_episodes_page.dart';
 
 class LibraryPage extends ConsumerWidget {
@@ -13,17 +13,43 @@ class LibraryPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
-    final followedSeries = ref.watch(
-      followedSeriesProvider,
+    final seriesAsync = ref.watch(
+      librarySeriesProvider,
     );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ma bibliothèque'),
       ),
-      body: followedSeries.isEmpty
-          ? const _EmptyLibrary()
-          : ListView(
+      body: seriesAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        error: (error, stackTrace) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Impossible de charger votre bibliothèque.\n\n$error',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        data: (series) {
+          if (series.isEmpty) {
+            return const _EmptyLibrary();
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(
+                librarySeriesProvider,
+              );
+
+              await ref.read(
+                librarySeriesProvider.future,
+              );
+            },
+            child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Text(
@@ -36,16 +62,21 @@ class LibraryPage extends ConsumerWidget {
                       ),
                 ),
                 const SizedBox(height: 16),
-
-                ...followedSeries.map(
+                ...series.map(
                   (series) => _SeriesProgressCard(
-                    tvShowId: series.id,
-                    name: series.name,
-                    posterPath: series.posterPath,
+                    tvShowId:
+                        series['tmdb_id'] as int,
+                    name:
+                        series['name'] as String,
+                    posterPath:
+                        series['poster_path'] as String?,
                   ),
                 ),
               ],
             ),
+          );
+        },
+      ),
     );
   }
 }
@@ -71,19 +102,16 @@ class _SeriesProgressCard extends ConsumerWidget {
     );
 
     return nextEpisodeAsync.when(
-      loading: () {
-        return const Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(
+            child: CircularProgressIndicator(),
           ),
-        );
-      },
-      error: (error, stackTrace) {
-        return const SizedBox.shrink();
-      },
+        ),
+      ),
+      error: (error, stackTrace) =>
+          const SizedBox.shrink(),
       data: (nextEpisode) {
         if (nextEpisode == null) {
           return const SizedBox.shrink();
@@ -100,14 +128,14 @@ class _SeriesProgressCard extends ConsumerWidget {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              if (posterPath != null)
+              if (posterPath != null &&
+                  posterPath!.isNotEmpty)
                 Image.network(
                   'https://image.tmdb.org/t/p/w500$posterPath',
                   height: 180,
                   width: double.infinity,
                   fit: BoxFit.cover,
                 ),
-
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -124,9 +152,7 @@ class _SeriesProgressCard extends ConsumerWidget {
                                 FontWeight.bold,
                           ),
                     ),
-
                     const SizedBox(height: 8),
-
                     Text(
                       'S${nextEpisode.seasonNumber.toString().padLeft(2, '0')}'
                       'E${episode.episodeNumber.toString().padLeft(2, '0')}'
@@ -135,28 +161,32 @@ class _SeriesProgressCard extends ConsumerWidget {
                           .textTheme
                           .bodyLarge,
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       nextEpisode.seasonName,
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium,
                     ),
-
                     const SizedBox(height: 16),
-
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => SeasonEpisodesPage(
-                                tvShowId: nextEpisode.tvShowId,
-                                seasonNumber: nextEpisode.seasonNumber,
-                                seasonName: nextEpisode.seasonName,
+                              builder: (_) =>
+                                  SeasonEpisodesPage(
+                                tvShowId:
+                                    nextEpisode.tvShowId,
+                                seasonNumber:
+                                    nextEpisode
+                                        .seasonNumber,
+                                seasonName:
+                                    nextEpisode.seasonName,
+                                tvShowName: name,
+                                posterPath:
+                                    posterPath,
                               ),
                             ),
                           );
@@ -189,7 +219,8 @@ class _EmptyLibrary extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Icon(
               Icons.movie_outlined,

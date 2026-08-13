@@ -14,11 +14,15 @@ class SeasonEpisodesPage extends ConsumerWidget {
     required this.tvShowId,
     required this.seasonNumber,
     required this.seasonName,
+    this.tvShowName,
+    this.posterPath,
   });
 
   final int tvShowId;
   final int seasonNumber;
   final String seasonName;
+  final String? tvShowName;
+  final String? posterPath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
