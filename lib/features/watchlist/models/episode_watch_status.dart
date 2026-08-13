@@ -1,0 +1,4 @@
+enum EpisodeWatchStatus {
+  unwatched,
+  watched,
+}

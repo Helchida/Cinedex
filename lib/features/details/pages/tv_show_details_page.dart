@@ -5,6 +5,9 @@ import '../../series/models/season.dart';
 import '../../series/models/tv_show.dart';
 import '../providers/media_details_provider.dart';
 import 'season_episodes_page.dart';
+import '../../library/models/followed_series.dart';
+import '../../library/providers/followed_series_provider.dart';
+import '../../watchlist/providers/watch_progress_provider.dart';
 
 class TvShowDetailsPage extends ConsumerWidget {
   const TvShowDetailsPage({
@@ -45,7 +48,7 @@ class TvShowDetailsPage extends ConsumerWidget {
   }
 }
 
-class _TvShowDetailsContent extends StatelessWidget {
+class _TvShowDetailsContent extends ConsumerWidget {
   const _TvShowDetailsContent({
     required this.tvShow,
   });
@@ -53,7 +56,24 @@ class _TvShowDetailsContent extends StatelessWidget {
   final TvShow tvShow;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+
+    final watchedEpisodes = ref.watch(
+      watchProgressProvider.select(
+        (state) => state.episodes.values
+            .where(
+              (episode) => episode.tvShowId == tvShow.id,
+            )
+            .length,
+      ),
+    );
+
+    final totalEpisodes = tvShow.numberOfEpisodes ?? 0;
+
+    final progress = totalEpisodes == 0
+        ? 0.0
+        : watchedEpisodes / totalEpisodes;
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -77,8 +97,20 @@ class _TvShowDetailsContent extends StatelessWidget {
               children: [
                 _Header(tvShow: tvShow),
                 const SizedBox(height: 24),
-                const _Actions(),
+
+                _ProgressSection(
+                  tvShow: tvShow,
+                  watchedEpisodes: watchedEpisodes,
+                  totalEpisodes: totalEpisodes,
+                  progress: progress,
+                ),
+
+                const SizedBox(height: 24),
+
+                _Actions(tvShow: tvShow),
+
                 const SizedBox(height: 28),
+
                 _Genres(tvShow: tvShow),
                 const SizedBox(height: 24),
                 _Overview(tvShow: tvShow),
@@ -165,11 +197,230 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
-  const _Actions();
+class _ProgressSection extends ConsumerWidget {
+  const _ProgressSection({
+    required this.tvShow,
+    required this.watchedEpisodes,
+    required this.totalEpisodes,
+    required this.progress,
+  });
+
+  final TvShow tvShow;
+  final int watchedEpisodes;
+  final int totalEpisodes;
+  final double progress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    if (totalEpisodes == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final percentage = (progress * 100).round();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Progression',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                Text(
+                  '$percentage %',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Text(
+              '$watchedEpisodes / $totalEpisodes épisodes vus',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium,
+            ),
+
+            const SizedBox(height: 16),
+
+            if (watchedEpisodes == totalEpisodes)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.check),
+                  label: const Text(
+                    'Série terminée',
+                  ),
+                ),
+              )
+            else
+              _ContinueWatchingButton(
+                tvShow: tvShow,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContinueWatchingButton extends ConsumerWidget {
+  const _ContinueWatchingButton({
+    required this.tvShow,
+  });
+
+  final TvShow tvShow;
+
+  @override
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final seasonsAsync = ref.watch(
+      tvShowSeasonsProvider(tvShow.id),
+    );
+
+    return seasonsAsync.when(
+      loading: () {
+        return const SizedBox(
+          width: double.infinity,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        );
+      },
+      error: (error, stackTrace) {
+        return const SizedBox.shrink();
+      },
+      data: (seasons) {
+        final regularSeasons = seasons
+            .where(
+              (season) => season.seasonNumber > 0,
+            )
+            .toList();
+
+        return FutureBuilder<
+            _NextEpisode?>(
+          future: _findNextEpisode(
+            ref,
+            tvShow.id,
+            regularSeasons,
+          ),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
+              return const SizedBox(
+                width: double.infinity,
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            final nextEpisode = snapshot.data;
+
+            if (nextEpisode == null) {
+              return const SizedBox.shrink();
+            }
+
+            return SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SeasonEpisodesPage(
+                        tvShowId: tvShow.id,
+                        seasonNumber:
+                            nextEpisode.seasonNumber,
+                        seasonName:
+                            nextEpisode.seasonName,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.play_arrow,
+                ),
+                label: Text(
+                  'Continuer à regarder · '
+                  'S${nextEpisode.seasonNumber.toString().padLeft(2, '0')}'
+                  'E${nextEpisode.episodeNumber.toString().padLeft(2, '0')}',
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _NextEpisode {
+  const _NextEpisode({
+    required this.seasonNumber,
+    required this.seasonName,
+    required this.episodeNumber,
+  });
+
+  final int seasonNumber;
+  final String seasonName;
+  final int episodeNumber;
+}
+
+class _Actions extends ConsumerWidget {
+  const _Actions({
+    required this.tvShow,
+  });
+
+  final TvShow tvShow;
+
+  @override
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final isFollowed = ref.watch(
+      followedSeriesProvider.select(
+        (series) => series.any(
+          (item) => item.id == tvShow.id,
+        ),
+      ),
+    );
+
     return Row(
       children: [
         Expanded(
@@ -182,9 +433,33 @@ class _Actions extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.add),
-            label: const Text('À voir'),
+            onPressed: () {
+              final notifier = ref.read(
+                followedSeriesProvider.notifier,
+              );
+
+              if (isFollowed) {
+                notifier.remove(tvShow.id);
+              } else {
+                notifier.add(
+                  FollowedSeries(
+                    id: tvShow.id,
+                    name: tvShow.name,
+                    posterPath: tvShow.posterPath,
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              isFollowed
+                  ? Icons.bookmark
+                  : Icons.add,
+            ),
+            label: Text(
+              isFollowed
+                  ? 'Dans ma bibliothèque'
+                  : 'À voir',
+            ),
           ),
         ),
       ],
@@ -364,7 +639,7 @@ class _Seasons extends ConsumerWidget {
   }
 }
 
-class _SeasonTile extends StatelessWidget {
+class _SeasonTile extends ConsumerWidget {
   const _SeasonTile({
     required this.tvShowId,
     required this.season,
@@ -374,7 +649,26 @@ class _SeasonTile extends StatelessWidget {
   final Season season;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final watchedEpisodes = ref.watch(
+      watchProgressProvider.select(
+        (state) => state.episodes.values
+            .where(
+              (episode) =>
+                  episode.tvShowId == tvShowId &&
+                  episode.seasonNumber ==
+                      season.seasonNumber,
+            )
+            .length,
+      ),
+    );
+
+    final totalEpisodes =
+        season.episodeCount ?? 0;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       clipBehavior: Clip.antiAlias,
@@ -391,8 +685,8 @@ class _SeasonTile extends StatelessWidget {
         ),
         subtitle: Text(
           [
-            if (season.episodeCount != null)
-              '${season.episodeCount} épisodes',
+            if (totalEpisodes > 0)
+              '$watchedEpisodes / $totalEpisodes épisodes vus',
             if (season.airDate != null)
               season.airDate!.year.toString(),
           ].join(' · '),
@@ -449,4 +743,52 @@ class _SeasonPoster extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<_NextEpisode?> _findNextEpisode(
+  WidgetRef ref,
+  int tvShowId,
+  List<Season> seasons,
+) async {
+  final watchState =
+      ref.read(watchProgressProvider);
+
+  final sortedSeasons = [...seasons]
+    ..sort(
+      (a, b) => a.seasonNumber.compareTo(
+        b.seasonNumber,
+      ),
+    );
+
+  for (final season in sortedSeasons) {
+    final episodes = await ref.read(
+      seasonEpisodesProvider(
+        (
+          tvShowId: tvShowId,
+          seasonNumber: season.seasonNumber,
+        ),
+      ).future,
+    );
+
+    final sortedEpisodes = [...episodes]
+      ..sort(
+        (a, b) => a.episodeNumber.compareTo(
+          b.episodeNumber,
+        ),
+      );
+
+    for (final episode in sortedEpisodes) {
+      if (!watchState.episodes.containsKey(
+        episode.id,
+      )) {
+        return _NextEpisode(
+          seasonNumber: season.seasonNumber,
+          seasonName: season.name,
+          episodeNumber: episode.episodeNumber,
+        );
+      }
+    }
+  }
+
+  return null;
 }

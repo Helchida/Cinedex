@@ -1,0 +1,4 @@
+enum MediaWatchStatus {
+  watched,
+  unwatched,
+}

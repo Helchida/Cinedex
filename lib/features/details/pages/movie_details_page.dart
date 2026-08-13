@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/media_details_provider.dart';
 import '../../movies/models/movie.dart';
+import '../../watchlist/providers/watch_progress_provider.dart';
 
 class MovieDetailsPage extends ConsumerWidget {
   const MovieDetailsPage({
@@ -73,7 +74,9 @@ class _MovieDetailsContent extends StatelessWidget {
               children: [
                 _Header(movie: movie),
                 const SizedBox(height: 24),
-                _Actions(),
+                _Actions(
+                  movieId: movie.id,
+                ),
                 const SizedBox(height: 28),
                 _Genres(movie: movie),
                 const SizedBox(height: 24),
@@ -198,28 +201,51 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
-  const _Actions();
+class _Actions extends ConsumerWidget {
+  const _Actions({
+    required this.movieId,
+  });
+
+  final int movieId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final isWatched = ref.watch(
+      watchProgressProvider.select(
+        (state) => state.movies.containsKey(movieId),
+      ),
+    );
+
     return Row(
       children: [
         Expanded(
-          child: FilledButton.icon(
-            onPressed: () {
-              // TODO: marquer comme vu
-            },
-            icon: const Icon(Icons.check),
-            label: const Text('Vu'),
-          ),
+          child: isWatched
+              ? OutlinedButton.icon(
+                  onPressed: () {
+                    ref
+                        .read(watchProgressProvider.notifier)
+                        .toggleMovie(movieId);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Vu'),
+                )
+              : FilledButton.icon(
+                  onPressed: () {
+                    ref
+                        .read(watchProgressProvider.notifier)
+                        .toggleMovie(movieId);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Marquer comme vu'),
+                ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {
-              // TODO: ajouter à voir
-            },
+            onPressed: () {},
             icon: const Icon(Icons.add),
             label: const Text('À voir'),
           ),
