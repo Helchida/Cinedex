@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 echo "========================================"
@@ -12,10 +11,6 @@ git clone https://github.com/flutter/flutter.git \
   "$HOME/flutter"
 
 export PATH="$HOME/flutter/bin:$PATH"
-
-echo "========================================"
-echo "Flutter version"
-echo "========================================"
 
 flutter --version
 
@@ -37,8 +32,5 @@ echo "========================================"
 
 flutter build web --release \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
-
-echo "========================================"
-echo "Build completed successfully"
-echo "========================================"
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+  --dart-define=TMDB_ACCESS_TOKEN="$TMDB_ACCESS_TOKEN"

@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiClient {
   ApiClient()
@@ -8,7 +7,7 @@ class ApiClient {
             baseUrl: 'https://api.themoviedb.org/3',
             headers: {
               'Authorization':
-                  'Bearer ${dotenv.env['TMDB_ACCESS_TOKEN']}',
+                  'Bearer ${const String.fromEnvironment('TMDB_ACCESS_TOKEN')}',
               'Content-Type': 'application/json',
             },
           ),
