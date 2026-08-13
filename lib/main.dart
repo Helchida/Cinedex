@@ -8,11 +8,30 @@ import 'app/app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
+  // Charge le .env uniquement lorsqu'il existe.
+  // En production, les valeurs sont injectées lors du build.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Aucun .env disponible : on utilise les variables
+    // déjà présentes dans l'environnement.
+  }
+
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ??
+      const String.fromEnvironment('SUPABASE_URL');
+
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ??
+      const String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    throw Exception(
+      'Les variables SUPABASE_URL et SUPABASE_ANON_KEY sont introuvables.',
+    );
+  }
 
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   runApp(
