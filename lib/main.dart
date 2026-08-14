@@ -3,37 +3,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app.dart';
-
-const supabaseUrl = String.fromEnvironment(
-  'SUPABASE_URL',
-);
-
-const supabaseAnonKey = String.fromEnvironment(
-  'SUPABASE_ANON_KEY',
-);
-
-const tmdbAccessToken = String.fromEnvironment(
-  'TMDB_ACCESS_TOKEN',
-);
+import 'config/env.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+  if (Env.supabaseUrl.isEmpty ||
+      Env.supabaseAnonKey.isEmpty) {
     throw Exception(
-      'Les variables SUPABASE_URL et SUPABASE_ANON_KEY sont introuvables.',
+      'Les variables SUPABASE_URL et SUPABASE_ANON_KEY '
+      'sont introuvables.',
     );
   }
 
-  if (tmdbAccessToken.isEmpty) {
+  if (Env.tmdbAccessToken.isEmpty) {
     throw Exception(
       'La variable TMDB_ACCESS_TOKEN est introuvable.',
     );
   }
 
   await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
+    url: Env.supabaseUrl,
+    anonKey: Env.supabaseAnonKey,
   );
 
   runApp(

@@ -10,10 +10,12 @@
 .history
 .svn/
 .swiftpm/
+.vscode/
 migrate_working_dir/
 .env
 .env.*
 !.env.example
+flutter-run.bat
 
 # IntelliJ related
 *.iml
