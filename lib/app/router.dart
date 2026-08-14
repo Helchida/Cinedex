@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/authentication/pages/login_page.dart';
 import '../features/authentication/pages/register_page.dart';
-import '../features/authentication/providers/auth_provider.dart';
+import '../../../core/supabase/supabase_provider.dart';
 import '../features/home/home_page.dart';
 import '../features/search/search_page.dart';
 import '../features/library/library_page.dart';
@@ -36,12 +36,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthPage =
           isLoggingIn || isRegistering;
 
-      // Pas connecté → login
       if (!isLoggedIn && !isAuthPage) {
         return '/login';
       }
 
-      // Déjà connecté → ne pas afficher login/register
       if (isLoggedIn && isAuthPage) {
         return '/';
       }
@@ -50,10 +48,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
-      // ========================================================
-      // AUTHENTIFICATION
-      // ========================================================
 
+      // AUTHENTIFICATION
       GoRoute(
         path: '/login',
         builder: (context, state) {
@@ -68,10 +64,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // ========================================================
       // APPLICATION
-      // ========================================================
-
       StatefulShellRoute.indexedStack(
         builder: (
           context,

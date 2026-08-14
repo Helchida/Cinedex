@@ -1,20 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/supabase/supabase_provider.dart';
 
-final supabaseProvider = Provider<SupabaseClient>((ref) {
-  return Supabase.instance.client;
-});
 
-/// État d'authentification Supabase.
 final authStateProvider = StreamProvider<AuthState>((ref) {
   final supabase = ref.read(supabaseProvider);
 
   return supabase.auth.onAuthStateChange;
 });
 
-/// Utilisateur actuellement connecté.
-///
-/// Retourne null si aucun utilisateur n'est connecté.
 final currentUserProvider = Provider<User?>((ref) {
   final authState = ref.watch(authStateProvider);
 

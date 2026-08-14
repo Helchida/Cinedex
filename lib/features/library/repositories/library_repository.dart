@@ -15,10 +15,7 @@ class LibraryRepository {
     return user.id;
   }
 
-  // ============================================================
   // SERIES
-  // ============================================================
-
   Future<List<Map<String, dynamic>>> getSeries() async {
     final response = await supabase
         .from('series')
@@ -73,10 +70,7 @@ class LibraryRepository {
     return response != null;
   }
 
-  // ============================================================
   // FILMS
-  // ============================================================
-
   Future<List<Map<String, dynamic>>> getMovies() async {
     final response = await supabase
         .from('movies')

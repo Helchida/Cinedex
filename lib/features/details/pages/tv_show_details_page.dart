@@ -7,6 +7,8 @@ import '../providers/media_details_provider.dart';
 import 'season_episodes_page.dart';
 import '../../library/providers/library_provider.dart';
 import '../../watchlist/providers/watch_progress_provider.dart';
+import '../../library/providers/library_repository_provider.dart';
+import '../../library/providers/next_episode_provider.dart';
 
 class TvShowDetailsPage extends ConsumerWidget {
   const TvShowDetailsPage({
@@ -302,11 +304,11 @@ class _ContinueWatchingButton extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
-    final seasonsAsync = ref.watch(
-      tvShowSeasonsProvider(tvShow.id),
+    final nextEpisodeAsync = ref.watch(
+      nextEpisodeProvider(tvShow.id),
     );
 
-    return seasonsAsync.when(
+    return nextEpisodeAsync.when(
       loading: () {
         return const SizedBox(
           width: double.infinity,
@@ -321,83 +323,38 @@ class _ContinueWatchingButton extends ConsumerWidget {
       error: (error, stackTrace) {
         return const SizedBox.shrink();
       },
-      data: (seasons) {
-        final regularSeasons = seasons
-            .where(
-              (season) => season.seasonNumber > 0,
-            )
-            .toList();
+      data: (nextEpisode) {
+        if (nextEpisode == null) {
+          return const SizedBox.shrink();
+        }
 
-        return FutureBuilder<
-            _NextEpisode?>(
-          future: _findNextEpisode(
-            ref,
-            tvShow.id,
-            regularSeasons,
-          ),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState ==
-                ConnectionState.waiting) {
-              return const SizedBox(
-                width: double.infinity,
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(8),
-                    child: CircularProgressIndicator(),
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SeasonEpisodesPage(
+                    tvShowId: tvShow.id,
+                    seasonNumber: nextEpisode.seasonNumber,
+                    seasonName: nextEpisode.seasonName,
                   ),
                 ),
               );
-            }
-
-            final nextEpisode = snapshot.data;
-
-            if (nextEpisode == null) {
-              return const SizedBox.shrink();
-            }
-
-            return SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => SeasonEpisodesPage(
-                        tvShowId: tvShow.id,
-                        seasonNumber:
-                            nextEpisode.seasonNumber,
-                        seasonName:
-                            nextEpisode.seasonName,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(
-                  Icons.play_arrow,
-                ),
-                label: Text(
-                  'Continuer à regarder · '
-                  'S${nextEpisode.seasonNumber.toString().padLeft(2, '0')}'
-                  'E${nextEpisode.episodeNumber.toString().padLeft(2, '0')}',
-                ),
-              ),
-            );
-          },
+            },
+            icon: const Icon(
+              Icons.play_arrow,
+            ),
+            label: Text(
+              'Continuer à regarder · '
+              'S${nextEpisode.seasonNumber.toString().padLeft(2, '0')}'
+              'E${nextEpisode.episode.episodeNumber.toString().padLeft(2, '0')}',
+            ),
+          ),
         );
       },
     );
   }
-}
-
-class _NextEpisode {
-  const _NextEpisode({
-    required this.seasonNumber,
-    required this.seasonName,
-    required this.episodeNumber,
-  });
-
-  final int seasonNumber;
-  final String seasonName;
-  final int episodeNumber;
 }
 
 class _Actions extends ConsumerWidget {
@@ -447,21 +404,23 @@ class _Actions extends ConsumerWidget {
                 ? null
                 : () async {
                     try {
-                      final notifier = ref.read(
-                        watchProgressProvider.notifier,
+                      final repository = ref.read(
+                        libraryRepositoryProvider,
                       );
 
                       if (isFollowed) {
-                        await notifier.removeSeriesFromLibrary(
-                          tvShowId: tvShow.id,
+                        await repository.removeSeries(
+                          tmdbId: tvShow.id,
                         );
                       } else {
-                        await notifier.addSeriesToLibrary(
-                          tvShowId: tvShow.id,
+                        await repository.addSeries(
+                          tmdbId: tvShow.id,
                           name: tvShow.name,
                           posterPath: tvShow.posterPath,
                         );
                       }
+
+                      ref.invalidate(librarySeriesProvider);
                     } catch (error) {
                       if (!context.mounted) {
                         return;
@@ -770,52 +729,4 @@ class _SeasonPoster extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<_NextEpisode?> _findNextEpisode(
-  WidgetRef ref,
-  int tvShowId,
-  List<Season> seasons,
-) async {
-  final watchState =
-      ref.read(watchProgressProvider);
-
-  final sortedSeasons = [...seasons]
-    ..sort(
-      (a, b) => a.seasonNumber.compareTo(
-        b.seasonNumber,
-      ),
-    );
-
-  for (final season in sortedSeasons) {
-    final episodes = await ref.read(
-      seasonEpisodesProvider(
-        (
-          tvShowId: tvShowId,
-          seasonNumber: season.seasonNumber,
-        ),
-      ).future,
-    );
-
-    final sortedEpisodes = [...episodes]
-      ..sort(
-        (a, b) => a.episodeNumber.compareTo(
-          b.episodeNumber,
-        ),
-      );
-
-    for (final episode in sortedEpisodes) {
-      if (!watchState.episodes.containsKey(
-        episode.id,
-      )) {
-        return _NextEpisode(
-          seasonNumber: season.seasonNumber,
-          seasonName: season.name,
-          episodeNumber: episode.episodeNumber,
-        );
-      }
-    }
-  }
-
-  return null;
 }

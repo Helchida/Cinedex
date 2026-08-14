@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'auth_provider.dart';
+import '../../../core/supabase/supabase_provider.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, void>(

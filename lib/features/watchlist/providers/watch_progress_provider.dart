@@ -7,6 +7,8 @@ import '../models/movie_progress.dart';
 import '../repositories/watch_progress_repository.dart';
 import '../../library/providers/library_provider.dart';
 import 'watch_progress_repository_provider.dart';
+import '../../library/repositories/library_repository.dart';
+import '../../library/providers/library_repository_provider.dart';
 
 class WatchProgressState {
   const WatchProgressState({
@@ -35,11 +37,16 @@ class WatchProgressState {
 class WatchProgressNotifier
     extends Notifier<WatchProgressState> {
   late final WatchProgressRepository _repository;
+  late final LibraryRepository _libraryRepository;
 
   @override
   WatchProgressState build() {
     _repository = ref.read(
       watchProgressRepositoryProvider,
+    );
+
+    _libraryRepository = ref.read(
+      libraryRepositoryProvider,
     );
 
     Future.microtask(_load);
@@ -49,10 +56,7 @@ class WatchProgressNotifier
     );
   }
 
-  // ============================================================
   // CHARGEMENT
-  // ============================================================
-
   Future<void> _load() async {
     try {
       final watchedEpisodes =
@@ -79,10 +83,7 @@ class WatchProgressNotifier
     }
   }
 
-  // ============================================================
   // EPISODES
-  // ============================================================
-
   bool isEpisodeWatched(int episodeId) {
     return state.episodes[episodeId]?.status ==
         EpisodeWatchStatus.watched;
@@ -126,6 +127,8 @@ class WatchProgressNotifier
       posterPath: posterPath,
     );
 
+    ref.invalidate(librarySeriesProvider);
+
     final episodes =
         Map<int, EpisodeProgress>.from(
       state.episodes,
@@ -144,73 +147,7 @@ class WatchProgressNotifier
     );
   }
 
-  int watchedEpisodesCount(
-    List<int> episodeIds,
-  ) {
-    return episodeIds
-        .where(isEpisodeWatched)
-        .length;
-  }
-
-  int watchedEpisodesCountForShow(
-    int tvShowId,
-  ) {
-    return state.episodes.values
-        .where(
-          (episode) =>
-              episode.tvShowId == tvShowId,
-        )
-        .length;
-  }
-
-  int totalEpisodesCountForShow({
-    required int tvShowId,
-    required int totalEpisodes,
-  }) {
-    return totalEpisodes;
-  }
-
-  EpisodeProgress? nextUnwatchedEpisode({
-    required int tvShowId,
-    required List<EpisodeProgress> episodes,
-  }) {
-    final unwatched = episodes.where(
-      (episode) =>
-          episode.tvShowId == tvShowId &&
-          !isEpisodeWatched(
-            episode.episodeId,
-          ),
-    );
-
-    if (unwatched.isEmpty) {
-      return null;
-    }
-
-    final sorted = unwatched.toList()
-      ..sort(
-        (a, b) {
-          final seasonComparison =
-              a.seasonNumber.compareTo(
-            b.seasonNumber,
-          );
-
-          if (seasonComparison != 0) {
-            return seasonComparison;
-          }
-
-          return a.episodeNumber.compareTo(
-            b.episodeNumber,
-          );
-        },
-      );
-
-    return sorted.first;
-  }
-
-  // ============================================================
   // SAISON
-  // ============================================================
-
   Future<void> setSeasonWatched({
     required int tvShowId,
     required int seasonNumber,
@@ -268,10 +205,7 @@ class WatchProgressNotifier
     );
   }
 
-  // ============================================================
   // FILMS
-  // ============================================================
-
   bool isMovieWatched(int tmdbMovieId) {
     return state.movies[tmdbMovieId]?.status ==
         MediaWatchStatus.watched;
@@ -327,13 +261,10 @@ class WatchProgressNotifier
     );
   }
 
-  // ============================================================
-// BIBLIOTHÈQUE - SERIES
-// ============================================================
-
+// SERIES
 Future<bool> isSeriesInLibrary(int tvShowId) async {
-  return _repository.isSeriesInLibrary(
-    tmdbSeriesId: tvShowId,
+  return _libraryRepository.containsSeries(
+    tmdbId: tvShowId,
   );
 }
 
@@ -342,8 +273,8 @@ Future<void> addSeriesToLibrary({
   required String name,
   String? posterPath,
 }) async {
-  await _repository.addSeriesToLibrary(
-    tmdbSeriesId: tvShowId,
+  await _libraryRepository.addSeries(
+    tmdbId: tvShowId,
     name: name,
     posterPath: posterPath,
   );
@@ -354,8 +285,8 @@ Future<void> addSeriesToLibrary({
 Future<void> removeSeriesFromLibrary({
   required int tvShowId,
 }) async {
-  await _repository.removeSeriesFromLibrary(
-    tmdbSeriesId: tvShowId,
+  await _libraryRepository.removeSeries(
+    tmdbId: tvShowId,
   );
 
   ref.invalidate(librarySeriesProvider);

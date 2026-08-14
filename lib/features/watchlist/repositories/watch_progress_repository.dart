@@ -4,11 +4,13 @@ import '../models/episode_progress.dart';
 import '../models/episode_watch_status.dart';
 import '../models/movie_progress.dart';
 import '../models/media_watch_status.dart';
+import '../../library/repositories/library_repository.dart';
 
 class WatchProgressRepository {
-  WatchProgressRepository(this.supabase);
+  WatchProgressRepository(this.supabase, this.libraryRepository);
 
   final SupabaseClient supabase;
+  final LibraryRepository libraryRepository;
 
   String get _userId {
     final user = supabase.auth.currentUser;
@@ -20,13 +22,6 @@ class WatchProgressRepository {
     return user.id;
   }
 
-  // ============================================================
-  // FILMS
-  // ============================================================
-
-  /// Récupère tous les films vus.
-  ///
-  /// movieId contient ici le TMDB ID du film.
   Future<List<MovieProgress>> getWatchedMovies() async {
     final response = await supabase
         .from('movie_progress')
@@ -48,7 +43,6 @@ class WatchProgressRepository {
     }).toList();
   }
 
-  /// Marque un film comme vu.
   Future<void> markMovieWatched({
     required int tmdbMovieId,
     required String title,
@@ -73,7 +67,6 @@ class WatchProgressRepository {
     );
   }
 
-  /// Retire un film des films vus.
   Future<void> unmarkMovieWatched({
     required int tmdbMovieId,
   }) async {
@@ -131,11 +124,6 @@ class WatchProgressRepository {
     return inserted['id'] as int;
   }
 
-  // ============================================================
-  // EPISODES
-  // ============================================================
-
-  /// Récupère tous les épisodes vus.
   Future<List<EpisodeProgress>> getWatchedEpisodes() async {
     final response = await supabase
         .from('episode_progress')
@@ -163,9 +151,6 @@ class WatchProgressRepository {
     }).toList();
   }
 
-  /// Marque un épisode comme vu.
-  ///
-  /// La série est automatiquement ajoutée à la bibliothèque.
   Future<void> markEpisodeWatched({
     required int tvShowId,
     required int episodeId,
@@ -174,6 +159,13 @@ class WatchProgressRepository {
     required String tvShowName,
     String? posterPath,
   }) async {
+
+    await libraryRepository.addSeries(
+      tmdbId: tvShowId,
+      name: tvShowName,
+      posterPath: posterPath,
+    );
+
     final seriesId = await _getOrCreateSeries(
       userId: _userId,
       tvShowId: tvShowId,
@@ -194,7 +186,6 @@ class WatchProgressRepository {
     );
   }
 
-  /// Retire un épisode des épisodes vus.
   Future<void> unmarkEpisodeWatched({
     required int episodeId,
   }) async {
@@ -203,20 +194,6 @@ class WatchProgressRepository {
         .delete()
         .eq('user_id', _userId)
         .eq('tmdb_episode_id', episodeId);
-  }
-
-  // ============================================================
-  // SERIES
-  // ============================================================
-
-  Future<List<Map<String, dynamic>>> getSeries() async {
-    final response = await supabase
-        .from('series')
-        .select()
-        .eq('user_id', _userId)
-        .order('created_at');
-
-    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<int> _getOrCreateSeries({
@@ -250,67 +227,4 @@ class WatchProgressRepository {
     return inserted['id'] as int;
   }
 
-  // ============================================================
-// BIBLIOTHÈQUE - SERIES
-// ============================================================
-
-/// Vérifie si une série est présente dans la bibliothèque.
-Future<bool> isSeriesInLibrary({
-  required int tmdbSeriesId,
-}) async {
-  final user = supabase.auth.currentUser;
-
-  if (user == null) {
-    throw Exception('Utilisateur non connecté.');
-  }
-
-  final response = await supabase
-      .from('series')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('tmdb_id', tmdbSeriesId)
-      .maybeSingle();
-
-  return response != null;
-}
-
-/// Ajoute une série à la bibliothèque.
-Future<void> addSeriesToLibrary({
-  required int tmdbSeriesId,
-  required String name,
-  String? posterPath,
-}) async {
-  final user = supabase.auth.currentUser;
-
-  if (user == null) {
-    throw Exception('Utilisateur non connecté.');
-  }
-
-  await _getOrCreateSeries(
-    userId: user.id,
-    tvShowId: tmdbSeriesId,
-    name: name,
-    posterPath: posterPath,
-  );
-}
-
-/// Retire une série de la bibliothèque.
-///
-/// Attention : cette méthode ne supprime pas les épisodes vus.
-/// Elle retire uniquement la série de la bibliothèque.
-Future<void> removeSeriesFromLibrary({
-  required int tmdbSeriesId,
-}) async {
-  final user = supabase.auth.currentUser;
-
-  if (user == null) {
-    throw Exception('Utilisateur non connecté.');
-  }
-
-  await supabase
-      .from('series')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('tmdb_id', tmdbSeriesId);
-}
 }

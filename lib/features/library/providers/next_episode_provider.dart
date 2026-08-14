@@ -22,7 +22,6 @@ final nextEpisodeProvider =
   (ref, tvShowId) async {
     final watchState = ref.watch(watchProgressProvider);
 
-    // Récupération des saisons depuis TMDB
     final seasons = await ref.read(
       tvShowSeasonsProvider(tvShowId).future,
     );
@@ -37,7 +36,6 @@ final nextEpisodeProvider =
             a.seasonNumber.compareTo(b.seasonNumber),
       );
 
-    // On parcourt les saisons dans l'ordre
     for (final season in regularSeasons) {
       final episodes = await ref.read(
         seasonEpisodesProvider(
@@ -56,7 +54,6 @@ final nextEpisodeProvider =
           ),
         );
 
-      // Premier épisode non vu
       for (final episode in sortedEpisodes) {
         if (!watchState.episodes.containsKey(
           episode.id,
@@ -71,7 +68,6 @@ final nextEpisodeProvider =
       }
     }
 
-    // Tous les épisodes sont vus
     return null;
   },
 );
