@@ -227,4 +227,54 @@ class WatchProgressRepository {
     return inserted['id'] as int;
   }
 
+  Future<void> markEpisodesWatched({
+    required int tvShowId,
+    required String tvShowName,
+    required List<EpisodeProgress> episodes,
+    String? posterPath,
+  }) async {
+    if (episodes.isEmpty) {
+      return;
+    }
+
+    final seriesId = await _getOrCreateSeries(
+      userId: _userId,
+      tvShowId: tvShowId,
+      name: tvShowName,
+      posterPath: posterPath,
+    );
+
+    final rows = episodes.map((episode) {
+      return {
+        'user_id': _userId,
+        'series_id': seriesId,
+        'tmdb_episode_id': episode.episodeId,
+        'season_number': episode.seasonNumber,
+        'episode_number': episode.episodeNumber,
+        'status': 'watched',
+      };
+    }).toList();
+
+    await supabase
+        .from('episode_progress')
+        .upsert(
+          rows,
+          onConflict: 'user_id,tmdb_episode_id',
+        );
+  }
+
+  Future<void> unmarkEpisodesWatched({
+    required List<int> episodeIds,
+  }) async {
+    if (episodeIds.isEmpty) {
+      return;
+    }
+
+    await supabase
+        .from('episode_progress')
+        .delete()
+        .eq('user_id', _userId)
+        .inFilter('tmdb_episode_id', episodeIds);
+  }
+
 }

@@ -373,6 +373,23 @@ class _Actions extends ConsumerWidget {
       librarySeriesProvider,
     );
 
+    final watchedEpisodes = ref.watch(
+      watchProgressProvider.select(
+        (state) => state.episodes.values
+            .where(
+              (episode) => episode.tvShowId == tvShow.id,
+            )
+            .length,
+      ),
+    );
+
+    final totalEpisodes =
+        tvShow.numberOfEpisodes ?? 0;
+
+    final isWatched =
+        totalEpisodes > 0 &&
+        watchedEpisodes >= totalEpisodes;
+
     final isFollowed = libraryAsync.maybeWhen(
       data: (series) {
         return series.any(
@@ -387,17 +404,49 @@ class _Actions extends ConsumerWidget {
     return Row(
       children: [
         Expanded(
-          child: FilledButton.icon(
-            onPressed: () {
-              // TODO : marquer tous les épisodes comme vus.
-            },
-            icon: const Icon(Icons.check),
-            label: const Text('Vu'),
-          ),
+          child: isWatched
+              ? OutlinedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          ref
+                              .read(
+                                watchProgressProvider
+                                    .notifier,
+                              )
+                              .toggleTvShowWatched(
+                                tvShowId: tvShow.id,
+                                tvShowName: tvShow.name,
+                                posterPath:
+                                    tvShow.posterPath,
+                              );
+                        },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Vu'),
+                )
+              : FilledButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          ref
+                              .read(
+                                watchProgressProvider
+                                    .notifier,
+                              )
+                              .toggleTvShowWatched(
+                                tvShowId: tvShow.id,
+                                tvShowName: tvShow.name,
+                                posterPath:
+                                    tvShow.posterPath,
+                              );
+                        },
+                  icon: const Icon(Icons.check),
+                  label: const Text(
+                    'Marquer comme vu',
+                  ),
+                ),
         ),
-
         const SizedBox(width: 12),
-
         Expanded(
           child: OutlinedButton.icon(
             onPressed: isLoading
@@ -416,11 +465,14 @@ class _Actions extends ConsumerWidget {
                         await repository.addSeries(
                           tmdbId: tvShow.id,
                           name: tvShow.name,
-                          posterPath: tvShow.posterPath,
+                          posterPath:
+                              tvShow.posterPath,
                         );
                       }
 
-                      ref.invalidate(librarySeriesProvider);
+                      ref.invalidate(
+                        librarySeriesProvider,
+                      );
                     } catch (error) {
                       if (!context.mounted) {
                         return;
@@ -432,7 +484,7 @@ class _Actions extends ConsumerWidget {
                           content: Text(
                             'Impossible de modifier la bibliothèque : $error',
                           ),
-                        ),
+                        )
                       );
                     }
                   },

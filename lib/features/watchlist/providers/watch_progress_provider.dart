@@ -9,6 +9,7 @@ import '../../library/providers/library_provider.dart';
 import 'watch_progress_repository_provider.dart';
 import '../../library/repositories/library_repository.dart';
 import '../../library/providers/library_repository_provider.dart';
+import '../../details/providers/media_details_provider.dart';
 
 class WatchProgressState {
   const WatchProgressState({
@@ -203,6 +204,114 @@ class WatchProgressNotifier
     state = state.copyWith(
       episodes: updated,
     );
+  }
+
+  Future<void> toggleTvShowWatched({
+    required int tvShowId,
+    required String tvShowName,
+    String? posterPath,
+  }) async {
+    final seasons = await ref.read(
+      tvShowSeasonsProvider(tvShowId).future,
+    );
+
+    final regularSeasons = seasons
+        .where(
+          (season) => season.seasonNumber > 0,
+        )
+        .toList()
+      ..sort(
+        (a, b) =>
+            a.seasonNumber.compareTo(b.seasonNumber),
+      );
+
+    final allEpisodes = <EpisodeProgress>[];
+
+    for (final season in regularSeasons) {
+      final episodes = await ref.read(
+        seasonEpisodesProvider(
+          (
+            tvShowId: tvShowId,
+            seasonNumber: season.seasonNumber,
+          ),
+        ).future,
+      );
+
+      for (final episode in episodes) {
+        allEpisodes.add(
+          EpisodeProgress(
+            episodeId: episode.id,
+            tvShowId: tvShowId,
+            seasonNumber: season.seasonNumber,
+            episodeNumber: episode.episodeNumber,
+            status: EpisodeWatchStatus.watched,
+          ),
+        );
+      }
+    }
+
+    if (allEpisodes.isEmpty) {
+      return;
+    }
+
+    final allWatched = allEpisodes.every(
+      (episode) =>
+          state.episodes.containsKey(episode.episodeId),
+    );
+
+    if (allWatched) {
+
+      final episodeIds = allEpisodes
+          .map((episode) => episode.episodeId)
+          .toList();
+
+      await _repository.unmarkEpisodesWatched(
+        episodeIds: episodeIds,
+      );
+
+      final updated =
+          Map<int, EpisodeProgress>.from(
+        state.episodes,
+      );
+
+      for (final episodeId in episodeIds) {
+        updated.remove(episodeId);
+      }
+
+      state = state.copyWith(
+        episodes: updated,
+      );
+    } else {
+
+      final episodesToMark = allEpisodes.where(
+        (episode) =>
+            !state.episodes.containsKey(
+          episode.episodeId,
+        ),
+      ).toList();
+
+      await _repository.markEpisodesWatched(
+        tvShowId: tvShowId,
+        tvShowName: tvShowName,
+        posterPath: posterPath,
+        episodes: episodesToMark,
+      );
+
+      final updated =
+          Map<int, EpisodeProgress>.from(
+        state.episodes,
+      );
+
+      for (final episode in allEpisodes) {
+        updated[episode.episodeId] = episode;
+      }
+
+      state = state.copyWith(
+        episodes: updated,
+      );
+
+      ref.invalidate(librarySeriesProvider);
+    }
   }
 
   // FILMS
