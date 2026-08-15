@@ -9,6 +9,7 @@ import 'providers/search_provider.dart';
 import 'models/search_result.dart';
 import '../details/pages/movie_details_page.dart';
 import '../details/pages/tv_show_details_page.dart';
+import 'providers/explorer_provider.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -90,13 +91,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildResults(
     AsyncValue<SearchResult?> searchState,
   ) {
+    final isSearching =
+        _searchController.text.trim().isNotEmpty;
+
+    if (!isSearching) {
+      return const _ExplorerContent();
+    }
+
     return searchState.when(
       data: (result) {
         if (result == null) {
           return const _EmptySearchState();
         }
 
-        if (result.movies.isEmpty && result.tvShows.isEmpty) {
+        if (result.movies.isEmpty &&
+            result.tvShows.isEmpty) {
           return const _NoResultsState();
         }
 
@@ -213,6 +222,288 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
+class _ExplorerContent extends ConsumerWidget {
+  const _ExplorerContent();
+
+  @override
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final explorerAsync = ref.watch(
+      explorerProvider,
+    );
+
+    return explorerAsync.when(
+      loading: () {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+      error: (error, stackTrace) {
+        return _ErrorState(
+          message: error.toString(),
+          onRetry: () {
+            ref.invalidate(explorerProvider);
+          },
+        );
+      },
+      data: (content) {
+        return ListView(
+          padding: const EdgeInsets.only(
+            bottom: 24,
+          ),
+          children: [
+            _ExplorerSection(
+              title: 'Films populaires',
+              movies: content.popularMovies,
+            ),
+
+            _ExplorerSection(
+              title: 'Séries populaires',
+              tvShows: content.popularTvShows,
+            ),
+
+            _ExplorerSection(
+              title: 'Films actuellement au cinéma',
+              movies: content.nowPlayingMovies,
+            ),
+
+            _ExplorerSection(
+              title: 'Séries actuellement diffusées',
+              tvShows: content.onTheAirTvShows,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ExplorerSection extends StatelessWidget {
+  const _ExplorerSection({
+    required this.title,
+    this.movies,
+    this.tvShows,
+  });
+
+  final String title;
+  final List<Movie>? movies;
+  final List<TvShow>? tvShows;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMovies =
+        movies != null && movies!.isNotEmpty;
+
+    final hasTvShows =
+        tvShows != null && tvShows!.isNotEmpty;
+
+    if (!hasMovies && !hasTvShows) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            20,
+            16,
+            12,
+          ),
+          child: Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ),
+
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+            ),
+            scrollDirection: Axis.horizontal,
+            itemCount: hasMovies
+                ? movies!.length
+                : tvShows!.length,
+            separatorBuilder: (_, __) =>
+                const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              if (hasMovies) {
+                return _ExplorerMovieCard(
+                  movie: movies![index],
+                );
+              }
+
+              return _ExplorerTvShowCard(
+                tvShow: tvShows![index],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExplorerMovieCard extends StatelessWidget {
+  const _ExplorerMovieCard({
+    required this.movie,
+  });
+
+  final Movie movie;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 135,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MovieDetailsPage(
+                movieId: movie.id,
+              ),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(10),
+                child: movie.posterPath != null &&
+                        movie.posterPath!.isNotEmpty
+                    ? Image.network(
+                        'https://image.tmdb.org/t/p/w342${movie.posterPath}',
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) {
+                          return _PosterPlaceholder();
+                        },
+                      )
+                    : _PosterPlaceholder(),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              movie.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExplorerTvShowCard extends StatelessWidget {
+  const _ExplorerTvShowCard({
+    required this.tvShow,
+  });
+
+  final TvShow tvShow;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 135,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TvShowDetailsPage(
+                tvShowId: tvShow.id,
+              ),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(10),
+                child: tvShow.posterPath != null &&
+                        tvShow.posterPath!.isNotEmpty
+                    ? Image.network(
+                        'https://image.tmdb.org/t/p/w342${tvShow.posterPath}',
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) {
+                          return _PosterPlaceholder();
+                        },
+                      )
+                    : _PosterPlaceholder(),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              tvShow.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PosterPlaceholder extends StatelessWidget {
+  const _PosterPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest,
+      child: const Center(
+        child: Icon(
+          Icons.movie_outlined,
+          size: 40,
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchResults extends StatelessWidget {
   const _SearchResults({
     required this.movies,
@@ -225,7 +516,9 @@ class _SearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+      ),
       children: [
         if (movies.isNotEmpty) ...[
           const Text(
@@ -235,10 +528,15 @@ class _SearchResults extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
+
           const SizedBox(height: 12),
+
           ...movies.map(
-            (movie) => _MovieResultTile(movie: movie),
+            (movie) => _MovieResultTile(
+              movie: movie,
+            ),
           ),
+
           const SizedBox(height: 24),
         ],
 
@@ -250,9 +548,13 @@ class _SearchResults extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
+
           const SizedBox(height: 12),
+
           ...tvShows.map(
-            (show) => _TvShowResultTile(show: show),
+            (show) => _TvShowResultTile(
+              show: show,
+            ),
           ),
         ],
       ],

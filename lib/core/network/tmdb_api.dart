@@ -47,6 +47,90 @@ class TmdbApi {
     );
   }
 
+  Future<List<Movie>> getPopularMovies() async {
+    final response = await _client.dio.get(
+      '/movie/popular',
+      queryParameters: {
+        'language': 'fr-FR',
+        'page': 1,
+      },
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    final results = data['results'] as List<dynamic>? ?? [];
+
+    return results
+        .map(
+          (item) => Movie.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<TvShow>> getPopularTvShows() async {
+    final response = await _client.dio.get(
+      '/tv/popular',
+      queryParameters: {
+        'language': 'fr-FR',
+        'page': 1,
+      },
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    final results = data['results'] as List<dynamic>? ?? [];
+
+    return results
+        .map(
+          (item) => TvShow.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<Movie>> getNowPlayingMovies() async {
+    final response = await _client.dio.get(
+      '/movie/now_playing',
+      queryParameters: {
+        'language': 'fr-FR',
+        'page': 1,
+      },
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    final results = data['results'] as List<dynamic>? ?? [];
+
+    return results
+        .map(
+          (item) => Movie.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<TvShow>> getOnTheAirTvShows() async {
+    final response = await _client.dio.get(
+      '/tv/on_the_air',
+      queryParameters: {
+        'language': 'fr-FR',
+        'page': 1,
+      },
+    );
+
+    final data = response.data as Map<String, dynamic>;
+    final results = data['results'] as List<dynamic>? ?? [];
+
+    return results
+        .map(
+          (item) => TvShow.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
   Future<Movie> getMovie(int movieId) async {
   final response = await _client.dio.get(
     '/movie/$movieId',
