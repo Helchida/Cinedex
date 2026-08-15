@@ -88,6 +88,152 @@ class WatchProgressRepository {
         .eq('movie_id', movie['id'] as int);
   }
 
+  Future<bool> isMovieInWatchlist({
+  required int tmdbMovieId,
+}) async {
+  final movie = await supabase
+      .from('movies')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('tmdb_id', tmdbMovieId)
+      .maybeSingle();
+
+  if (movie == null) {
+    return false;
+  }
+
+  final result = await supabase
+      .from('movie_watchlist')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('movie_id', movie['id'] as int)
+      .maybeSingle();
+
+  return result != null;
+}
+
+Future<void> addMovieToWatchlist({
+  required int tmdbMovieId,
+  required String title,
+  String? posterPath,
+  DateTime? releaseDate,
+}) async {
+  final movieId = await _getOrCreateMovie(
+    userId: _userId,
+    tmdbMovieId: tmdbMovieId,
+    title: title,
+    posterPath: posterPath,
+    releaseDate: releaseDate,
+  );
+
+  await supabase
+      .from('movie_watchlist')
+      .upsert(
+        {
+          'user_id': _userId,
+          'movie_id': movieId,
+        },
+        onConflict: 'user_id,movie_id',
+      );
+}
+
+Future<void> removeMovieFromWatchlist({
+  required int tmdbMovieId,
+}) async {
+  final movie = await supabase
+      .from('movies')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('tmdb_id', tmdbMovieId)
+      .maybeSingle();
+
+  if (movie == null) {
+    return;
+  }
+
+  await supabase
+      .from('movie_watchlist')
+      .delete()
+      .eq('user_id', _userId)
+      .eq('movie_id', movie['id'] as int);
+}
+
+Future<List<int>> getWatchlistMovies() async {
+  final response = await supabase
+      .from('movie_watchlist')
+      .select('''
+        movies (
+          tmdb_id
+        )
+      ''')
+      .eq('user_id', _userId);
+
+  return (response as List).map<int>((json) {
+    final movie = json['movies'];
+
+    return movie['tmdb_id'] as int;
+  }).toList();
+}
+
+Future<List<Map<String, dynamic>>> getWatchlistMoviesDetails() async {
+  final response = await supabase
+      .from('movie_watchlist')
+      .select('''
+        movies (
+          tmdb_id,
+          title,
+          poster_path,
+          release_date
+        )
+      ''')
+      .eq('user_id', _userId);
+
+  return (response as List)
+      .map(
+        (json) => json['movies'] as Map<String, dynamic>,
+      )
+      .toList();
+}
+
+Future<void> deleteMovieIfUnused({
+  required int tmdbMovieId,
+}) async {
+  final movie = await supabase
+      .from('movies')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('tmdb_id', tmdbMovieId)
+      .maybeSingle();
+
+  if (movie == null) {
+    return;
+  }
+
+  final movieId = movie['id'] as int;
+
+  final progress = await supabase
+      .from('movie_progress')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('movie_id', movieId)
+      .maybeSingle();
+
+  final watchlist = await supabase
+      .from('movie_watchlist')
+      .select('id')
+      .eq('user_id', _userId)
+      .eq('movie_id', movieId)
+      .maybeSingle();
+
+  if (progress == null && watchlist == null) {
+    await supabase
+        .from('movies')
+        .delete()
+        .eq('id', movieId)
+        .eq('user_id', _userId);
+  }
+}
+
   Future<int> _getOrCreateMovie({
     required String userId,
     required int tmdbMovieId,

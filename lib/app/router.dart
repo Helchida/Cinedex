@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../features/authentication/pages/login_page.dart';
 import '../features/authentication/pages/register_page.dart';
 import '../../../core/supabase/supabase_provider.dart';
-import '../features/home/home_page.dart';
+import '../features/progress/progress_page.dart';
 import '../features/search/search_page.dart';
 import '../features/library/library_page.dart';
 import '../features/profile/profile_page.dart';
@@ -81,7 +81,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/',
                 builder: (context, state) {
-                  return const HomePage();
+                  return const ProgressPage();
                 },
               ),
             ],
@@ -189,9 +189,9 @@ class MainScaffold extends StatelessWidget {
 
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
+            icon: Icon(Icons.timelapse_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Accueil',
+            label: 'Progression',
           ),
           NavigationDestination(
             icon: Icon(Icons.search_outlined),

@@ -15,21 +15,31 @@ class WatchProgressState {
   const WatchProgressState({
     this.episodes = const {},
     this.movies = const {},
+    this.movieWatchlist = const {},
+    this.watchlistMovies = const [],
     this.isLoading = false,
   });
 
   final Map<int, EpisodeProgress> episodes;
   final Map<int, MovieProgress> movies;
+  final Set<int> movieWatchlist;
+  final List<Map<String, dynamic>> watchlistMovies;
   final bool isLoading;
 
   WatchProgressState copyWith({
     Map<int, EpisodeProgress>? episodes,
     Map<int, MovieProgress>? movies,
+    Set<int>? movieWatchlist,
+    List<Map<String, dynamic>>? watchlistMovies,
     bool? isLoading,
   }) {
     return WatchProgressState(
       episodes: episodes ?? this.episodes,
       movies: movies ?? this.movies,
+      movieWatchlist:
+        movieWatchlist ?? this.movieWatchlist,
+      watchlistMovies:
+        watchlistMovies ?? this.watchlistMovies,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -66,6 +76,12 @@ class WatchProgressNotifier
       final watchedMovies =
           await _repository.getWatchedMovies();
 
+      final watchlistMovies =
+        await _repository.getWatchlistMovies();
+
+      final watchlistMoviesDetails =
+        await _repository.getWatchlistMoviesDetails();
+
       state = state.copyWith(
         episodes: {
           for (final episode in watchedEpisodes)
@@ -75,6 +91,9 @@ class WatchProgressNotifier
           for (final movie in watchedMovies)
             movie.movieId: movie,
         },
+        movieWatchlist: watchlistMovies.toSet(),
+        watchlistMovies:
+          watchlistMoviesDetails,
         isLoading: false,
       );
     } catch (_) {
@@ -320,39 +339,111 @@ class WatchProgressNotifier
         MediaWatchStatus.watched;
   }
 
-  Future<void> toggleMovie({
+  bool isMovieInWatchlist(int tmdbMovieId) {
+    return state.movieWatchlist.contains(
+      tmdbMovieId,
+    );
+  }
+
+  Future<void> toggleMovieWatchlist({
     required int tmdbMovieId,
     required String title,
     String? posterPath,
     DateTime? releaseDate,
   }) async {
-    final watched =
-        isMovieWatched(tmdbMovieId);
+    final inWatchlist =
+        isMovieInWatchlist(tmdbMovieId);
 
-    if (watched) {
-      await _repository.unmarkMovieWatched(
+    if (inWatchlist) {
+      await _repository.removeMovieFromWatchlist(
         tmdbMovieId: tmdbMovieId,
       );
 
-      final movies =
+      final updatedWatchlist =
+          Set<int>.from(state.movieWatchlist);
+
+      updatedWatchlist.remove(tmdbMovieId);
+
+      final updatedMovies =
           Map<int, MovieProgress>.from(
         state.movies,
       );
 
-      movies.remove(tmdbMovieId);
+      // Si le film n'est pas vu, il ne doit plus
+      // exister dans movie_progress.
+      if (!isMovieWatched(tmdbMovieId)) {
+        await _repository.unmarkMovieWatched(
+          tmdbMovieId: tmdbMovieId,
+        );
+
+        await _repository.deleteMovieIfUnused(
+          tmdbMovieId: tmdbMovieId,
+        );
+
+        updatedMovies.remove(tmdbMovieId);
+      }
+
+      final updatedWatchlistMovies =
+          state.watchlistMovies
+              .where(
+                (movie) =>
+                    movie['tmdb_id'] != tmdbMovieId,
+              )
+              .toList();
 
       state = state.copyWith(
-        movies: movies,
+        movieWatchlist: updatedWatchlist,
+        watchlistMovies: updatedWatchlistMovies,
+        movies: updatedMovies,
       );
 
       return;
     }
 
-    await _repository.markMovieWatched(
+    await _repository.addMovieToWatchlist(
       tmdbMovieId: tmdbMovieId,
       title: title,
       posterPath: posterPath,
       releaseDate: releaseDate,
+    );
+
+    final updatedWatchlist =
+        Set<int>.from(state.movieWatchlist);
+
+    updatedWatchlist.add(tmdbMovieId);
+
+    final updatedWatchlistMovies =
+        List<Map<String, dynamic>>.from(
+      state.watchlistMovies,
+    );
+
+    updatedWatchlistMovies.add({
+      'tmdb_id': tmdbMovieId,
+      'title': title,
+      'poster_path': posterPath,
+      'release_date': releaseDate
+          ?.toIso8601String()
+          .split('T')
+          .first,
+    });
+
+    state = state.copyWith(
+      movieWatchlist: updatedWatchlist,
+      watchlistMovies: updatedWatchlistMovies,
+    );
+  }
+
+Future<void> toggleMovie({
+  required int tmdbMovieId,
+  required String title,
+  String? posterPath,
+  DateTime? releaseDate,
+}) async {
+  final watched = isMovieWatched(tmdbMovieId);
+
+  if (watched) {
+    await _repository.unmarkMovieWatched(
+      tmdbMovieId: tmdbMovieId,
     );
 
     final movies =
@@ -360,15 +451,62 @@ class WatchProgressNotifier
       state.movies,
     );
 
-    movies[tmdbMovieId] = MovieProgress(
-      movieId: tmdbMovieId,
-      status: MediaWatchStatus.watched,
-    );
+    movies.remove(tmdbMovieId);
 
     state = state.copyWith(
       movies: movies,
     );
+
+    return;
   }
+
+  // Marquer comme vu
+  await _repository.markMovieWatched(
+    tmdbMovieId: tmdbMovieId,
+    title: title,
+    posterPath: posterPath,
+    releaseDate: releaseDate,
+  );
+
+  // Si le film était dans "À voir",
+  // on le retire de la watchlist.
+  if (isMovieInWatchlist(tmdbMovieId)) {
+    await _repository.removeMovieFromWatchlist(
+      tmdbMovieId: tmdbMovieId,
+    );
+  }
+
+  final movies =
+      Map<int, MovieProgress>.from(
+    state.movies,
+  );
+
+  movies[tmdbMovieId] = MovieProgress(
+    movieId: tmdbMovieId,
+    status: MediaWatchStatus.watched,
+  );
+
+  // Retirer le film de la watchlist locale
+  final watchlist =
+      Set<int>.from(state.movieWatchlist);
+
+  watchlist.remove(tmdbMovieId);
+
+  // Retirer également les détails de la liste locale
+  final watchlistMovies =
+      state.watchlistMovies
+          .where(
+            (movie) =>
+                movie['tmdb_id'] != tmdbMovieId,
+          )
+          .toList();
+
+  state = state.copyWith(
+    movies: movies,
+    movieWatchlist: watchlist,
+    watchlistMovies: watchlistMovies,
+  );
+}
 
 // SERIES
 Future<bool> isSeriesInLibrary(int tvShowId) async {

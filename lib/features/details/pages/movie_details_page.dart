@@ -271,6 +271,13 @@ class _Actions extends ConsumerWidget {
       ),
     );
 
+    final isInWatchlist = ref.watch(
+      watchProgressProvider.select(
+        (state) =>
+            state.movieWatchlist.contains(movie.id),
+      ),
+    );
+
     return Row(
       children: [
         Expanded(
@@ -306,16 +313,39 @@ class _Actions extends ConsumerWidget {
                   },
                   icon: const Icon(Icons.check),
                   label: const Text(
-                    'Marquer comme vu',
+                    'Je l\'ai vu',
                   ),
                 ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.add),
-            label: const Text('À voir'),
+            onPressed: () {
+              ref
+                  .read(
+                    watchProgressProvider.notifier,
+                  )
+                  .toggleMovieWatchlist(
+                    tmdbMovieId: movie.id,
+                    title: movie.title,
+                    posterPath: movie.posterPath,
+                    releaseDate: movie.releaseDate,
+                  );
+            },
+            icon: Icon(
+              isWatched
+                  ? Icons.bookmark
+              : isInWatchlist
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+            ),
+            label: Text(
+              isWatched
+                  ? 'Dans ma liste'
+                  : isInWatchlist
+                      ? 'Dans ma liste'
+                      : 'À voir',
+            ),
           ),
         ),
       ],
