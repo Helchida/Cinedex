@@ -6,6 +6,7 @@ import './providers/next_episode_provider.dart';
 import '../watchlist/providers/watch_progress_provider.dart';
 import '../watchlist/models/media_watch_status.dart';
 import '../details/pages/tv_show_details_page.dart';
+import '../details/pages/movie_details_page.dart';
 
 class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
@@ -211,9 +212,9 @@ class _MoviesLibrary extends ConsumerWidget {
               final movie = watchedMovies[index];
 
               return _MovieCard(
+                movieId: movie['tmdb_id'] as int,
                 title: movie['title'] as String,
-                posterPath:
-                    movie['poster_path'] as String?,
+                posterPath: movie['poster_path'] as String?,
               );
             },
           ),
@@ -225,10 +226,12 @@ class _MoviesLibrary extends ConsumerWidget {
 
 class _MovieCard extends StatelessWidget {
   const _MovieCard({
+    required this.movieId,
     required this.title,
     required this.posterPath,
   });
 
+  final int movieId;
   final String title;
   final String? posterPath;
 
@@ -236,45 +239,56 @@ class _MovieCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: posterPath != null &&
-                    posterPath!.isNotEmpty
-                ? Image.network(
-                    'https://image.tmdb.org/t/p/w500$posterPath',
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: double.infinity,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    child: const Icon(
-                      Icons.movie_outlined,
-                      size: 48,
-                    ),
-                  ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MovieDetailsPage(
+                movieId: movieId,
+              ),
             ),
-          ),
-        ],
+          );
+        },
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: posterPath != null &&
+                      posterPath!.isNotEmpty
+                  ? Image.network(
+                      'https://image.tmdb.org/t/p/w500$posterPath',
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      width: double.infinity,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      child: const Icon(
+                        Icons.movie_outlined,
+                        size: 48,
+                      ),
+                    ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

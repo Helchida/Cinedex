@@ -190,7 +190,7 @@ class MainScaffold extends StatelessWidget {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.timelapse_outlined),
-            selectedIcon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.timelapse),
             label: 'Progression',
           ),
           NavigationDestination(
