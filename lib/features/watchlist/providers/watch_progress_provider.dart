@@ -446,6 +446,8 @@ Future<void> toggleMovie({
       tmdbMovieId: tmdbMovieId,
     );
 
+    ref.invalidate(libraryMoviesProvider);
+
     final movies =
         Map<int, MovieProgress>.from(
       state.movies,
@@ -460,7 +462,6 @@ Future<void> toggleMovie({
     return;
   }
 
-  // Marquer comme vu
   await _repository.markMovieWatched(
     tmdbMovieId: tmdbMovieId,
     title: title,
@@ -468,8 +469,8 @@ Future<void> toggleMovie({
     releaseDate: releaseDate,
   );
 
-  // Si le film était dans "À voir",
-  // on le retire de la watchlist.
+  ref.invalidate(libraryMoviesProvider);
+
   if (isMovieInWatchlist(tmdbMovieId)) {
     await _repository.removeMovieFromWatchlist(
       tmdbMovieId: tmdbMovieId,
