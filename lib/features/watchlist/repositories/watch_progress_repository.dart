@@ -27,6 +27,7 @@ class WatchProgressRepository {
         .from('movie_progress')
         .select('''
           status,
+          watched_at,
           movies (
             tmdb_id
           )
@@ -39,6 +40,11 @@ class WatchProgressRepository {
       return MovieProgress(
         movieId: movie['tmdb_id'] as int,
         status: MediaWatchStatus.watched,
+        watchedAt: json['watched_at'] != null
+            ? DateTime.parse(
+                json['watched_at'] as String,
+              )
+            : null,
       );
     }).toList();
   }
@@ -431,5 +437,44 @@ Future<void> deleteMovieIfUnused({
         .eq('user_id', _userId)
         .inFilter('tmdb_episode_id', episodeIds);
   }
+
+Future<Map<int, DateTime?>> getWatchedTvShowsWatchedAt() async {
+  final response = await supabase
+      .from('episode_progress')
+      .select('''
+        tmdb_episode_id,
+        watched_at,
+        series (
+          tmdb_id
+        )
+      ''')
+      .eq('user_id', _userId);
+
+  final result = <int, DateTime?>{};
+
+  for (final json in response as List) {
+    final series = json['series'];
+
+    if (series == null) {
+      continue;
+    }
+
+    final tvShowId = series['tmdb_id'] as int;
+
+    final watchedAt = DateTime.tryParse(
+      json['watched_at'] as String? ?? '',
+    );
+
+    final currentDate = result[tvShowId];
+
+    if (currentDate == null ||
+        (watchedAt != null &&
+            watchedAt.isAfter(currentDate))) {
+      result[tvShowId] = watchedAt;
+    }
+  }
+
+  return result;
+}
 
 }

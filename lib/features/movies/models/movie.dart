@@ -13,6 +13,7 @@ class Movie {
     this.runtime,
     this.tagline,
     this.genres = const [],
+    this.genreIds = const [],
   });
 
   final int id;
@@ -28,6 +29,7 @@ class Movie {
   final int? runtime;
   final String? tagline;
   final List<String> genres;
+  final List<int> genreIds;
 
   factory Movie.fromJson(Map<String, dynamic> json) {
     return Movie(
@@ -49,6 +51,17 @@ class Movie {
               )
               .toList() ??
           [],
+      genreIds:
+        (json['genre_ids'] as List<dynamic>?)
+                ?.map((id) => id as int)
+                .toList() ??
+            (json['genres'] as List<dynamic>?)
+                ?.map(
+                  (genre) =>
+                      genre['id'] as int,
+                )
+                .toList() ??
+            [],
     );
   }
 

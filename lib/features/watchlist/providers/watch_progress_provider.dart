@@ -450,7 +450,7 @@ Future<void> toggleMovie({
     );
 
     ref.invalidate(libraryMoviesProvider);
-    ref.invalidate(explorerProvider);
+    
 
     final movies =
         Map<int, MovieProgress>.from(
@@ -462,6 +462,8 @@ Future<void> toggleMovie({
     state = state.copyWith(
       movies: movies,
     );
+
+    ref.invalidate(explorerProvider);
 
     return;
   }

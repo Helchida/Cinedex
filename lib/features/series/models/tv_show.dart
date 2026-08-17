@@ -14,6 +14,7 @@ class TvShow {
     this.numberOfSeasons,
     this.numberOfEpisodes,
     this.tagline,
+    this.genreIds = const [],
   });
 
   final int id;
@@ -30,6 +31,7 @@ class TvShow {
   final int? numberOfSeasons;
   final int? numberOfEpisodes;
   final String? tagline;
+  final List<int> genreIds;
 
   factory TvShow.fromJson(Map<String, dynamic> json) {
     return TvShow(
@@ -52,6 +54,17 @@ class TvShow {
       numberOfSeasons: json['number_of_seasons'] as int?,
       numberOfEpisodes: json['number_of_episodes'] as int?,
       tagline: json['tagline'] as String?,
+      genreIds:
+        (json['genre_ids'] as List<dynamic>?)
+                ?.map((id) => id as int)
+                .toList() ??
+            (json['genres'] as List<dynamic>?)
+                ?.map(
+                  (genre) =>
+                      genre['id'] as int,
+                )
+                .toList() ??
+            [],
     );
   }
 

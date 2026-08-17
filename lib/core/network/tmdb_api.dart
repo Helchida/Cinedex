@@ -3,6 +3,7 @@ import '../../features/search/models/search_result.dart';
 import '../../features/series/models/tv_show.dart';
 import '../../features/series/models/season.dart';
 import '../../features/series/models/episode.dart';
+import '../../features/search/models/media_credits.dart';
 
 import 'api_client.dart';
 
@@ -236,5 +237,91 @@ Future<List<TvShow>> getRecommendedTvShows(int tvShowId) async {
         ),
       )
       .toList();
+}
+
+Future<MediaCredits> getMovieCredits(
+  int movieId,
+) async {
+  final response = await _client.dio.get(
+    '/movie/$movieId/credits',
+    queryParameters: {
+      'language': 'fr-FR',
+    },
+  );
+
+  final data =
+      response.data as Map<String, dynamic>;
+
+  final crew =
+      data['crew'] as List<dynamic>? ?? [];
+
+  final cast =
+      data['cast'] as List<dynamic>? ?? [];
+
+  final directorIds = crew
+      .where(
+        (person) =>
+            person['job'] == 'Director',
+      )
+      .map(
+        (person) => person['id'] as int,
+      )
+      .toList();
+
+  final actorIds = cast
+      .take(10)
+      .map(
+        (person) => person['id'] as int,
+      )
+      .toList();
+
+  return MediaCredits(
+    directorIds: directorIds,
+    actorIds: actorIds,
+  );
+}
+
+Future<MediaCredits> getTvShowCredits(
+  int tvShowId,
+) async {
+  final response = await _client.dio.get(
+    '/tv/$tvShowId/credits',
+    queryParameters: {
+      'language': 'fr-FR',
+    },
+  );
+
+  final data =
+      response.data as Map<String, dynamic>;
+
+  final crew =
+      data['crew'] as List<dynamic>? ?? [];
+
+  final cast =
+      data['cast'] as List<dynamic>? ?? [];
+
+  final creatorIds =
+      crew
+          .where(
+            (person) =>
+                person['job'] == 'Executive Producer' ||
+                person['department'] == 'Writing',
+          )
+          .map(
+            (person) => person['id'] as int,
+          )
+          .toList();
+
+  final actorIds = cast
+      .take(10)
+      .map(
+        (person) => person['id'] as int,
+      )
+      .toList();
+
+  return MediaCredits(
+    directorIds: creatorIds,
+    actorIds: actorIds,
+  );
 }
 }
