@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../features/authentication/pages/login_page.dart';
 import '../features/authentication/pages/register_page.dart';
 import '../../../core/supabase/supabase_provider.dart';
-import '../features/progress/progress_page.dart';
-import '../features/search/search_page.dart';
-import '../features/library/library_page.dart';
-import '../features/profile/profile_page.dart';
+import '../features/progress/pages/progress_page.dart';
+import '../features/search/pages/search_page.dart';
+import '../features/library/pages/library_page.dart';
+import '../features/profile/pages/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
