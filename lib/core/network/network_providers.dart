@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
 import 'tmdb_api.dart';
+import '../cache/tmdb_cache_service.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient();
@@ -10,5 +11,5 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 final tmdbApiProvider = Provider<TmdbApi>((ref) {
   final client = ref.watch(apiClientProvider);
 
-  return TmdbApi(client);
+  return TmdbApi(client, TmdbCacheService());
 });

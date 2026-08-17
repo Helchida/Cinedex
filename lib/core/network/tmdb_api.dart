@@ -4,13 +4,18 @@ import '../../features/series/models/tv_show.dart';
 import '../../features/series/models/season.dart';
 import '../../features/series/models/episode.dart';
 import '../../features/search/models/media_credits.dart';
+import '../cache/tmdb_cache_service.dart';
 
 import 'api_client.dart';
 
 class TmdbApi {
-  TmdbApi(this._client);
+  TmdbApi(
+    this._client,
+    this._cache,
+  );
 
   final ApiClient _client;
+  final TmdbCacheService _cache;
 
   Future<SearchResult> searchMulti(String query) async {
     final response = await _client.dio.get(
@@ -133,17 +138,46 @@ class TmdbApi {
   }
 
   Future<Movie> getMovie(int movieId) async {
-  final response = await _client.dio.get(
-    '/movie/$movieId',
-    queryParameters: {
-      'language': 'fr-FR',
-    },
-  );
+    final cacheKey = 'movie_details_$movieId';
 
-  return Movie.fromJson(response.data as Map<String, dynamic>);
-}
+    final cached = _cache.get(cacheKey);
+
+    if (cached != null) {
+      return Movie.fromJson(
+        Map<String, dynamic>.from(cached),
+      );
+    }
+
+    final response = await _client.dio.get(
+      '/movie/$movieId',
+      queryParameters: {
+        'language': 'fr-FR',
+      },
+    );
+
+    final data =
+        response.data as Map<String, dynamic>;
+
+    await _cache.save(
+      key: cacheKey,
+      data: data,
+      duration: const Duration(days: 7),
+    );
+
+    return Movie.fromJson(data);
+  }
 
   Future<TvShow> getTvShow(int tvShowId) async {
+    final cacheKey = 'tv_details_$tvShowId';
+
+    final cached = _cache.get(cacheKey);
+
+    if (cached != null) {
+      return TvShow.fromJson(
+        Map<String, dynamic>.from(cached),
+      );
+    }
+
     final response = await _client.dio.get(
       '/tv/$tvShowId',
       queryParameters: {
@@ -151,7 +185,16 @@ class TmdbApi {
       },
     );
 
-    return TvShow.fromJson(response.data as Map<String, dynamic>);
+    final data =
+        response.data as Map<String, dynamic>;
+
+    await _cache.save(
+      key: cacheKey,
+      data: data,
+      duration: const Duration(days: 7),
+    );
+
+    return TvShow.fromJson(data);
   }
 
   Future<List<Season>> getTvShowSeasons(int tvShowId) async {
@@ -197,7 +240,24 @@ class TmdbApi {
         .toList();
   }
 
-Future<List<Movie>> getRecommendedMovies(int movieId) async {
+Future<List<Movie>> getRecommendedMovies(
+  int movieId,
+) async {
+  final cacheKey =
+      'movie_recommendations_$movieId';
+
+  final cached = _cache.get(cacheKey);
+
+  if (cached != null) {
+    return (cached as List)
+        .map(
+          (item) => Movie.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+
   final response = await _client.dio.get(
     '/movie/$movieId/recommendations',
     queryParameters: {
@@ -206,8 +266,17 @@ Future<List<Movie>> getRecommendedMovies(int movieId) async {
     },
   );
 
-  final data = response.data as Map<String, dynamic>;
-  final results = data['results'] as List<dynamic>? ?? [];
+  final data =
+      response.data as Map<String, dynamic>;
+
+  final results =
+      data['results'] as List<dynamic>? ?? [];
+
+  await _cache.save(
+    key: cacheKey,
+    data: results,
+    duration: const Duration(days: 1),
+  );
 
   return results
       .map(
@@ -218,7 +287,24 @@ Future<List<Movie>> getRecommendedMovies(int movieId) async {
       .toList();
 }
 
-Future<List<TvShow>> getRecommendedTvShows(int tvShowId) async {
+Future<List<TvShow>> getRecommendedTvShows(
+  int tvShowId,
+) async {
+  final cacheKey =
+      'tv_recommendations_$tvShowId';
+
+  final cached = _cache.get(cacheKey);
+
+  if (cached != null) {
+    return (cached as List)
+        .map(
+          (item) => TvShow.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+
   final response = await _client.dio.get(
     '/tv/$tvShowId/recommendations',
     queryParameters: {
@@ -227,8 +313,17 @@ Future<List<TvShow>> getRecommendedTvShows(int tvShowId) async {
     },
   );
 
-  final data = response.data as Map<String, dynamic>;
-  final results = data['results'] as List<dynamic>? ?? [];
+  final data =
+      response.data as Map<String, dynamic>;
+
+  final results =
+      data['results'] as List<dynamic>? ?? [];
+
+  await _cache.save(
+    key: cacheKey,
+    data: results,
+    duration: const Duration(days: 1),
+  );
 
   return results
       .map(
@@ -242,6 +337,26 @@ Future<List<TvShow>> getRecommendedTvShows(int tvShowId) async {
 Future<MediaCredits> getMovieCredits(
   int movieId,
 ) async {
+  final cacheKey = 'movie_credits_$movieId';
+
+  final cached = _cache.get(cacheKey);
+
+  if (cached != null) {
+    final data =
+        Map<String, dynamic>.from(cached);
+
+    return MediaCredits(
+      directorIds:
+          List<int>.from(
+        data['directorIds'] ?? [],
+      ),
+      actorIds:
+          List<int>.from(
+        data['actorIds'] ?? [],
+      ),
+    );
+  }
+
   final response = await _client.dio.get(
     '/movie/$movieId/credits',
     queryParameters: {
@@ -275,53 +390,92 @@ Future<MediaCredits> getMovieCredits(
       )
       .toList();
 
+  await _cache.save(
+    key: cacheKey,
+    data: {
+      'directorIds': directorIds,
+      'actorIds': actorIds,
+    },
+    duration: const Duration(days: 30),
+  );
+
   return MediaCredits(
     directorIds: directorIds,
     actorIds: actorIds,
   );
 }
 
-Future<MediaCredits> getTvShowCredits(
-  int tvShowId,
-) async {
-  final response = await _client.dio.get(
-    '/tv/$tvShowId/credits',
-    queryParameters: {
-      'language': 'fr-FR',
-    },
-  );
+  Future<MediaCredits> getTvShowCredits(
+    int tvShowId,
+  ) async {
+    final cacheKey = 'tv_credits_$tvShowId';
 
-  final data =
-      response.data as Map<String, dynamic>;
+    final cached = _cache.get(cacheKey);
 
-  final crew =
-      data['crew'] as List<dynamic>? ?? [];
+    if (cached != null) {
+      final data =
+          Map<String, dynamic>.from(cached);
 
-  final cast =
-      data['cast'] as List<dynamic>? ?? [];
+      return MediaCredits(
+        creatorIds:
+            List<int>.from(
+          data['creatorIds'] ?? [],
+        ),
+        actorIds:
+            List<int>.from(
+          data['actorIds'] ?? [],
+        ),
+      );
+    }
 
-  final creatorIds =
-      crew
-          .where(
-            (person) =>
-                person['job'] == 'Executive Producer' ||
-                person['department'] == 'Writing',
-          )
-          .map(
-            (person) => person['id'] as int,
-          )
-          .toList();
+    final response = await _client.dio.get(
+      '/tv/$tvShowId/credits',
+      queryParameters: {
+        'language': 'fr-FR',
+      },
+    );
 
-  final actorIds = cast
-      .take(10)
-      .map(
-        (person) => person['id'] as int,
-      )
-      .toList();
+    final data =
+        response.data as Map<String, dynamic>;
 
-  return MediaCredits(
-    directorIds: creatorIds,
-    actorIds: actorIds,
-  );
-}
+    final crew =
+        data['crew'] as List<dynamic>? ?? [];
+
+    final cast =
+        data['cast'] as List<dynamic>? ?? [];
+
+    final creatorIds = crew
+        .where(
+          (person) =>
+              person['job'] ==
+                  'Executive Producer' ||
+              person['department'] ==
+                  'Writing',
+        )
+        .map(
+          (person) => person['id'] as int,
+        )
+        .toList();
+
+    final actorIds = cast
+        .take(10)
+        .map(
+          (person) => person['id'] as int,
+        )
+        .toList();
+
+    await _cache.save(
+      key: cacheKey,
+      data: {
+        'creatorIds': creatorIds,
+        'actorIds': actorIds,
+      },
+      duration: const Duration(days: 30),
+    );
+
+    return MediaCredits(
+      creatorIds: creatorIds,
+      actorIds: actorIds,
+    );
+  }
 }
