@@ -195,4 +195,46 @@ class TmdbApi {
         )
         .toList();
   }
+
+Future<List<Movie>> getRecommendedMovies(int movieId) async {
+  final response = await _client.dio.get(
+    '/movie/$movieId/recommendations',
+    queryParameters: {
+      'language': 'fr-FR',
+      'page': 1,
+    },
+  );
+
+  final data = response.data as Map<String, dynamic>;
+  final results = data['results'] as List<dynamic>? ?? [];
+
+  return results
+      .map(
+        (item) => Movie.fromJson(
+          item as Map<String, dynamic>,
+        ),
+      )
+      .toList();
+}
+
+Future<List<TvShow>> getRecommendedTvShows(int tvShowId) async {
+  final response = await _client.dio.get(
+    '/tv/$tvShowId/recommendations',
+    queryParameters: {
+      'language': 'fr-FR',
+      'page': 1,
+    },
+  );
+
+  final data = response.data as Map<String, dynamic>;
+  final results = data['results'] as List<dynamic>? ?? [];
+
+  return results
+      .map(
+        (item) => TvShow.fromJson(
+          item as Map<String, dynamic>,
+        ),
+      )
+      .toList();
+}
 }

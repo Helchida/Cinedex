@@ -10,6 +10,7 @@ import 'watch_progress_repository_provider.dart';
 import '../../library/repositories/library_repository.dart';
 import '../../library/providers/library_repository_provider.dart';
 import '../../details/providers/media_details_provider.dart';
+import '../../search/providers/explorer_provider.dart';
 
 class WatchProgressState {
   const WatchProgressState({
@@ -369,8 +370,6 @@ class WatchProgressNotifier
         state.movies,
       );
 
-      // Si le film n'est pas vu, il ne doit plus
-      // exister dans movie_progress.
       if (!isMovieWatched(tmdbMovieId)) {
         await _repository.unmarkMovieWatched(
           tmdbMovieId: tmdbMovieId,
@@ -396,6 +395,8 @@ class WatchProgressNotifier
         watchlistMovies: updatedWatchlistMovies,
         movies: updatedMovies,
       );
+
+      ref.invalidate(explorerProvider);
 
       return;
     }
@@ -431,6 +432,8 @@ class WatchProgressNotifier
       movieWatchlist: updatedWatchlist,
       watchlistMovies: updatedWatchlistMovies,
     );
+
+    ref.invalidate(explorerProvider);
   }
 
 Future<void> toggleMovie({
@@ -447,6 +450,7 @@ Future<void> toggleMovie({
     );
 
     ref.invalidate(libraryMoviesProvider);
+    ref.invalidate(explorerProvider);
 
     final movies =
         Map<int, MovieProgress>.from(
@@ -487,13 +491,11 @@ Future<void> toggleMovie({
     status: MediaWatchStatus.watched,
   );
 
-  // Retirer le film de la watchlist locale
   final watchlist =
       Set<int>.from(state.movieWatchlist);
 
   watchlist.remove(tmdbMovieId);
 
-  // Retirer également les détails de la liste locale
   final watchlistMovies =
       state.watchlistMovies
           .where(
@@ -507,6 +509,8 @@ Future<void> toggleMovie({
     movieWatchlist: watchlist,
     watchlistMovies: watchlistMovies,
   );
+
+  ref.invalidate(explorerProvider);
 }
 
 // SERIES

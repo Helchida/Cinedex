@@ -7,10 +7,15 @@ class ExplorerContent {
     required this.popularTvShows,
     required this.nowPlayingMovies,
     required this.onTheAirTvShows,
+    required this.recommendedMovies,
+    required this.recommendedTvShows,
   });
 
   final List<Movie> popularMovies;
   final List<TvShow> popularTvShows;
   final List<Movie> nowPlayingMovies;
   final List<TvShow> onTheAirTvShows;
+
+  final List<Movie> recommendedMovies;
+  final List<TvShow> recommendedTvShows;
 }

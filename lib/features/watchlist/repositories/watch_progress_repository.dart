@@ -297,6 +297,15 @@ Future<void> deleteMovieIfUnused({
     }).toList();
   }
 
+  Future<List<int>> getWatchedTvShowIds() async {
+  final episodes = await getWatchedEpisodes();
+
+  return episodes
+      .map((episode) => episode.tvShowId)
+      .toSet()
+      .toList();
+}
+
   Future<void> markEpisodeWatched({
     required int tvShowId,
     required int episodeId,
