@@ -24,7 +24,6 @@ final explorerProvider =
   const recommendationService =
       RecommendationService();
 
-
   final classicContent = await Future.wait([
     api.getPopularMovies(),
     api.getPopularTvShows(),
@@ -43,7 +42,6 @@ final explorerProvider =
 
   final onTheAirTvShows =
       classicContent[3] as List<TvShow>;
-
 
   final userContent = await Future.wait([
     watchProgressRepository.getWatchedMovies(),
@@ -64,7 +62,6 @@ final explorerProvider =
       .map((movie) => movie.movieId)
       .toSet();
 
-
   final watchedMovieDetails =
       await Future.wait(
     watchedMovies.map(
@@ -76,7 +73,6 @@ final explorerProvider =
     for (final progress in watchedMovies)
       progress.movieId: progress.watchedAt,
   };
-
 
   final watchedMovieCreditsResults =
       await Future.wait(
@@ -94,7 +90,6 @@ final explorerProvider =
           watchedMovieCreditsResults[i],
   };
 
-
   final movieProfile =
       recommendationService.buildMovieProfile(
     watchedMovies: watchedMovieDetails,
@@ -102,12 +97,20 @@ final explorerProvider =
     watchedAt: watchedMovieAt,
   );
 
+  final movieSources =
+      recommendationService
+          .selectMovieRecommendationSources(
+    watchedMovies: watchedMovieDetails,
+    profile: movieProfile,
+    watchedAt: watchedMovieAt,
+    maxSources: 20,
+  );
 
   final movieRecommendationResults =
       await Future.wait(
-    watchedMovieIds.map(
-      (movieId) =>
-          api.getRecommendedMovies(movieId),
+    movieSources.map(
+      (movie) =>
+          api.getRecommendedMovies(movie.id),
     ),
   );
 
@@ -115,7 +118,6 @@ final explorerProvider =
       movieRecommendationResults
           .expand((movies) => movies)
           .toList();
-
 
   final uniqueMovieCandidates = {
     for (final movie
@@ -125,10 +127,36 @@ final explorerProvider =
         movie.id: movie,
   }.values.toList();
 
+  final quickScoredMovies =
+      uniqueMovieCandidates.map(
+    (movie) {
+      final score =
+          recommendationService.quickMovieScore(
+        movie: movie,
+        profile: movieProfile,
+      );
+
+      return (
+        movie: movie,
+        score: score,
+      );
+    },
+  ).toList();
+
+  quickScoredMovies.sort(
+    (a, b) =>
+        b.score.compareTo(a.score),
+  );
+
+  final movieCandidatesForCredits =
+      quickScoredMovies
+          .take(40)
+          .map((item) => item.movie)
+          .toList();
 
   final candidateMovieCreditsResults =
       await Future.wait(
-    uniqueMovieCandidates.map(
+    movieCandidatesForCredits.map(
       (movie) =>
           api.getMovieCredits(movie.id),
     ),
@@ -137,15 +165,14 @@ final explorerProvider =
   final candidateMovieCredits =
       <int, MediaCredits>{
     for (var i = 0;
-        i < uniqueMovieCandidates.length;
+        i < movieCandidatesForCredits.length;
         i++)
-      uniqueMovieCandidates[i].id:
+      movieCandidatesForCredits[i].id:
           candidateMovieCreditsResults[i],
   };
 
-
   final scoredMovies =
-      uniqueMovieCandidates.map(
+      movieCandidatesForCredits.map(
     (movie) {
       final credits =
           candidateMovieCredits[movie.id];
@@ -182,11 +209,9 @@ final explorerProvider =
           .take(10)
           .toList();
 
-
   final watchedTvShowAt =
       await watchProgressRepository
           .getWatchedTvShowsWatchedAt();
-
 
   final watchedTvShows =
       await Future.wait(
@@ -195,7 +220,6 @@ final explorerProvider =
           api.getTvShow(tvShowId),
     ),
   );
-
 
   final watchedTvShowCreditsResults =
       await Future.wait(
@@ -221,12 +245,20 @@ final explorerProvider =
     watchedAt: watchedTvShowAt,
   );
 
+  final tvShowSources =
+      recommendationService
+          .selectTvShowRecommendationSources(
+    watchedTvShows: watchedTvShows,
+    profile: tvShowProfile,
+    watchedAt: watchedTvShowAt,
+    maxSources: 20,
+  );
 
   final tvShowRecommendationResults =
       await Future.wait(
-    watchedTvShowIds.map(
-      (tvShowId) =>
-          api.getRecommendedTvShows(tvShowId),
+    tvShowSources.map(
+      (tvShow) =>
+          api.getRecommendedTvShows(tvShow.id),
     ),
   );
 
@@ -242,10 +274,36 @@ final explorerProvider =
         tvShow.id: tvShow,
   }.values.toList();
 
+  final quickScoredTvShows =
+      uniqueTvShowCandidates.map(
+    (tvShow) {
+      final score =
+          recommendationService.quickTvShowScore(
+        tvShow: tvShow,
+        profile: tvShowProfile,
+      );
+
+      return (
+        tvShow: tvShow,
+        score: score,
+      );
+    },
+  ).toList();
+
+  quickScoredTvShows.sort(
+    (a, b) =>
+        b.score.compareTo(a.score),
+  );
+
+  final tvShowCandidatesForCredits =
+      quickScoredTvShows
+          .take(40)
+          .map((item) => item.tvShow)
+          .toList();
 
   final candidateTvShowCreditsResults =
       await Future.wait(
-    uniqueTvShowCandidates.map(
+    tvShowCandidatesForCredits.map(
       (tvShow) =>
           api.getTvShowCredits(tvShow.id),
     ),
@@ -254,15 +312,14 @@ final explorerProvider =
   final candidateTvShowCredits =
       <int, MediaCredits>{
     for (var i = 0;
-        i < uniqueTvShowCandidates.length;
+        i < tvShowCandidatesForCredits.length;
         i++)
-      uniqueTvShowCandidates[i].id:
+      tvShowCandidatesForCredits[i].id:
           candidateTvShowCreditsResults[i],
   };
 
-
   final scoredTvShows =
-      uniqueTvShowCandidates.map(
+      tvShowCandidatesForCredits.map(
     (tvShow) {
       final credits =
           candidateTvShowCredits[tvShow.id];
@@ -288,7 +345,6 @@ final explorerProvider =
     },
   ).toList();
 
-
   scoredTvShows.sort(
     (a, b) =>
         b.score.compareTo(a.score),
@@ -300,17 +356,12 @@ final explorerProvider =
           .take(10)
           .toList();
 
-
   return ExplorerContent(
     popularMovies: popularMovies,
     popularTvShows: popularTvShows,
     nowPlayingMovies: nowPlayingMovies,
     onTheAirTvShows: onTheAirTvShows,
-
-    recommendedMovies:
-        uniqueRecommendedMovies,
-
-    recommendedTvShows:
-        uniqueRecommendedTvShows,
+    recommendedMovies: uniqueRecommendedMovies,
+    recommendedTvShows: uniqueRecommendedTvShows,
   );
 });

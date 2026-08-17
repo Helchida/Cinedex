@@ -33,14 +33,12 @@ class RecommendationService {
             (genres[genreId] ?? 0) + weight;
       }
 
-      for (final directorId
-          in movieCredits.directorIds) {
+      for (final directorId in movieCredits.directorIds) {
         directors[directorId] =
             (directors[directorId] ?? 0) + weight;
       }
 
-      for (final actorId
-          in movieCredits.actorIds) {
+      for (final actorId in movieCredits.actorIds) {
         actors[actorId] =
             (actors[actorId] ?? 0) + weight;
       }
@@ -79,14 +77,12 @@ class RecommendationService {
             (genres[genreId] ?? 0) + weight;
       }
 
-      for (final creatorId
-          in tvShowCredits.creatorIds) {
+      for (final creatorId in tvShowCredits.creatorIds) {
         creators[creatorId] =
             (creators[creatorId] ?? 0) + weight;
       }
 
-      for (final actorId
-          in tvShowCredits.actorIds) {
+      for (final actorId in tvShowCredits.actorIds) {
         actors[actorId] =
             (actors[actorId] ?? 0) + weight;
       }
@@ -94,11 +90,165 @@ class RecommendationService {
 
     return UserTasteProfile(
       genres: genres,
-      creators: creators,
+      directors: creators,
       actors: actors,
     );
   }
 
+  List<Movie> selectMovieRecommendationSources({
+    required List<Movie> watchedMovies,
+    required UserTasteProfile profile,
+    required Map<int, DateTime?> watchedAt,
+    int maxSources = 20,
+  }) {
+    if (watchedMovies.length <= maxSources) {
+      return watchedMovies;
+    }
+
+    final scored = watchedMovies.map((movie) {
+      final genreScore = _calculateGenrePreference(
+        movie.genreIds,
+        profile.genres,
+      );
+
+      final recencyScore = _recencyWeight(
+        watchedAt[movie.id],
+      );
+
+      return (
+        movie: movie,
+        score: genreScore * 0.7 + recencyScore * 0.3,
+      );
+    }).toList();
+
+    scored.sort(
+      (a, b) => b.score.compareTo(a.score),
+    );
+
+    final selected = <Movie>[];
+
+
+    for (final item in scored) {
+      if (selected.length >= maxSources) {
+        break;
+      }
+
+      selected.add(item.movie);
+    }
+
+    return selected;
+  }
+
+  List<TvShow> selectTvShowRecommendationSources({
+    required List<TvShow> watchedTvShows,
+    required UserTasteProfile profile,
+    required Map<int, DateTime?> watchedAt,
+    int maxSources = 20,
+  }) {
+    if (watchedTvShows.length <= maxSources) {
+      return watchedTvShows;
+    }
+
+    final scored = watchedTvShows.map((tvShow) {
+      final genreScore = _calculateGenrePreference(
+        tvShow.genreIds,
+        profile.genres,
+      );
+
+      final recencyScore = _recencyWeight(
+        watchedAt[tvShow.id],
+      );
+
+      return (
+        tvShow: tvShow,
+        score: genreScore * 0.7 + recencyScore * 0.3,
+      );
+    }).toList();
+
+    scored.sort(
+      (a, b) => b.score.compareTo(a.score),
+    );
+
+    final selected = <TvShow>[];
+
+    for (final item in scored) {
+      if (selected.length >= maxSources) {
+        break;
+      }
+
+      selected.add(item.tvShow);
+    }
+
+    return selected;
+  }
+
+  double quickMovieScore({
+    required Movie movie,
+    required UserTasteProfile profile,
+  }) {
+    double score = 0;
+
+    score +=
+        _calculateGenrePreference(
+              movie.genreIds,
+              profile.genres,
+            ) *
+            0.7;
+
+    score +=
+        ((movie.voteAverage ?? 0) / 10)
+                .clamp(0.0, 1.0) *
+            0.2;
+
+
+    final popularity =
+        movie.popularity ?? 0;
+
+    final popularityScore =
+        popularity > 0
+            ? (log(popularity + 1) / log(1000))
+                .clamp(0.0, 1.0)
+            : 0.0;
+
+    score += popularityScore * 0.1;
+
+    return score;
+  }
+
+  double quickTvShowScore({
+    required TvShow tvShow,
+    required UserTasteProfile profile,
+  }) {
+    double score = 0;
+
+
+    score +=
+        _calculateGenrePreference(
+              tvShow.genreIds,
+              profile.genres,
+            ) *
+            0.7;
+
+
+    score +=
+        ((tvShow.voteAverage ?? 0) / 10)
+                .clamp(0.0, 1.0) *
+            0.2;
+
+
+    final popularity =
+        tvShow.popularity ?? 0;
+
+    final popularityScore =
+        popularity > 0
+            ? (log(popularity + 1) / log(1000))
+                .clamp(0.0, 1.0)
+            : 0.0;
+
+    score += popularityScore * 0.1;
+
+    return score;
+  }
 
   double _recencyWeight(DateTime? watchedAt) {
     if (watchedAt == null) {
@@ -129,6 +279,34 @@ class RecommendationService {
     return 1.0;
   }
 
+  double _calculateGenrePreference(
+    List<int> genreIds,
+    Map<int, double> preferences,
+  ) {
+    if (genreIds.isEmpty ||
+        preferences.isEmpty) {
+      return 0;
+    }
+
+    double score = 0;
+
+    for (final genreId in genreIds) {
+      score += preferences[genreId] ?? 0;
+    }
+
+    final maxPreference =
+        preferences.values.reduce(
+      (a, b) => a > b ? a : b,
+    );
+
+    if (maxPreference <= 0) {
+      return 0;
+    }
+
+    return (score / maxPreference)
+        .clamp(0.0, 1.0);
+  }
+
 
   double scoreMovie({
     required Movie movie,
@@ -139,24 +317,13 @@ class RecommendationService {
 
     if (movie.genreIds.isNotEmpty &&
         profile.genres.isNotEmpty) {
-      double genreScore = 0;
-
-      for (final genreId in movie.genreIds) {
-        genreScore +=
-            profile.genres[genreId] ?? 0;
-      }
-
-      final maxPreference =
-          profile.genres.values.reduce(
-        (a, b) => a > b ? a : b,
+      final genreScore =
+          _calculateGenrePreference(
+        movie.genreIds,
+        profile.genres,
       );
 
-      if (maxPreference > 0) {
-        score +=
-            (genreScore / maxPreference)
-                .clamp(0.0, 1.0) *
-            35;
-      }
+      score += genreScore * 35;
     }
 
     if (credits.directorIds.isNotEmpty &&
@@ -186,7 +353,8 @@ class RecommendationService {
         profile.actors.isNotEmpty) {
       double actorScore = 0;
 
-      for (final actorId in credits.actorIds) {
+      for (final actorId
+          in credits.actorIds) {
         actorScore +=
             profile.actors[actorId] ?? 0;
       }
@@ -223,7 +391,6 @@ class RecommendationService {
     return score.clamp(0.0, 100.0);
   }
 
-
   double scoreTvShow({
     required TvShow tvShow,
     required MediaCredits credits,
@@ -233,54 +400,44 @@ class RecommendationService {
 
     if (tvShow.genreIds.isNotEmpty &&
         profile.genres.isNotEmpty) {
-      double genreScore = 0;
+      final genreScore =
+          _calculateGenrePreference(
+        tvShow.genreIds,
+        profile.genres,
+      );
 
-      for (final genreId in tvShow.genreIds) {
-        genreScore +=
-            profile.genres[genreId] ?? 0;
+      score += genreScore * 35;
+    }
+
+    if (credits.creatorIds.isNotEmpty &&
+        profile.directors.isNotEmpty) {
+      double creatorScore = 0;
+
+      for (final creatorId
+          in credits.creatorIds) {
+        creatorScore +=
+            profile.directors[creatorId] ?? 0;
       }
 
       final maxPreference =
-          profile.genres.values.reduce(
+          profile.directors.values.reduce(
         (a, b) => a > b ? a : b,
       );
 
       if (maxPreference > 0) {
         score +=
-            (genreScore / maxPreference)
+            (creatorScore / maxPreference)
                 .clamp(0.0, 1.0) *
-            35;
+            20;
       }
     }
-
-    if (credits.creatorIds.isNotEmpty &&
-      profile.creators.isNotEmpty) {
-
-    double creatorScore = 0;
-
-    for (final creatorId in credits.creatorIds) {
-      creatorScore +=
-          profile.creators[creatorId] ?? 0;
-    }
-
-    final maxPreference =
-        profile.creators.values.reduce(
-      (a, b) => a > b ? a : b,
-    );
-
-    if (maxPreference > 0) {
-      score +=
-          (creatorScore / maxPreference)
-              .clamp(0.0, 1.0) *
-          20;
-    }
-  }
 
     if (credits.actorIds.isNotEmpty &&
         profile.actors.isNotEmpty) {
       double actorScore = 0;
 
-      for (final actorId in credits.actorIds) {
+      for (final actorId
+          in credits.actorIds) {
         actorScore +=
             profile.actors[actorId] ?? 0;
       }
