@@ -277,30 +277,52 @@ Future<void> deleteMovieIfUnused({
   }
 
   Future<List<EpisodeProgress>> getWatchedEpisodes() async {
-    final response = await supabase
-        .from('episode_progress')
-        .select('''
-          tmdb_episode_id,
-          season_number,
-          episode_number,
-          status,
-          series (
-            tmdb_id
-          )
-        ''')
-        .eq('user_id', _userId);
+    const pageSize = 1000;
+    var offset = 0;
 
-    return (response as List).map((json) {
-      final series = json['series'];
+    final allEpisodes = <EpisodeProgress>[];
 
-      return EpisodeProgress(
-        episodeId: json['tmdb_episode_id'] as int,
-        tvShowId: series['tmdb_id'] as int,
-        seasonNumber: json['season_number'] as int,
-        episodeNumber: json['episode_number'] as int,
-        status: EpisodeWatchStatus.watched,
-      );
-    }).toList();
+    while (true) {
+      final response = await supabase
+          .from('episode_progress')
+          .select('''
+            tmdb_episode_id,
+            season_number,
+            episode_number,
+            status,
+            series (
+              tmdb_id
+            )
+          ''')
+          .eq('user_id', _userId)
+          .range(offset, offset + pageSize - 1);
+
+      for (final json in response as List) {
+        final series = json['series'];
+
+        if (series == null) {
+          continue;
+        }
+
+        allEpisodes.add(
+          EpisodeProgress(
+            episodeId: json['tmdb_episode_id'] as int,
+            tvShowId: series['tmdb_id'] as int,
+            seasonNumber: json['season_number'] as int,
+            episodeNumber: json['episode_number'] as int,
+            status: EpisodeWatchStatus.watched,
+          ),
+        );
+      }
+
+      if (response.length < pageSize) {
+        break;
+      }
+
+      offset += pageSize;
+    }
+
+    return allEpisodes;
   }
 
   Future<List<int>> getWatchedTvShowIds() async {
