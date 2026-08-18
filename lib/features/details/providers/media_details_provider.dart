@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/network_providers.dart';
+import '../../library/providers/library_repository_provider.dart';
 import '../../movies/models/movie.dart';
 import '../../series/models/tv_show.dart';
 import '../../series/models/season.dart';
@@ -8,49 +9,87 @@ import '../../series/models/episode.dart';
 import '../../watchlist/providers/watch_progress_provider.dart';
 
 final movieDetailsProvider =
-    FutureProvider.family<Movie, int>((ref, movieId) async {
-  final api = ref.read(tmdbApiProvider);
+    FutureProvider.family<Movie, int>(
+  (ref, movieId) async {
+    final api = ref.read(tmdbApiProvider);
 
-  return api.getMovie(movieId);
-});
+    return api.getMovie(movieId);
+  },
+);
 
 final tvShowDetailsProvider =
-    FutureProvider.family<TvShow, int>((ref, tvShowId) async {
-  final api = ref.read(tmdbApiProvider);
+    FutureProvider.family<TvShow, int>(
+  (ref, tvShowId) async {
+    final api = ref.read(tmdbApiProvider);
 
-  return api.getTvShow(tvShowId);
-});
+    return api.getTvShow(tvShowId);
+  },
+);
 
 final tvShowSeasonsProvider =
-    FutureProvider.family<List<Season>, int>((ref, tvShowId) async {
-  final api = ref.read(tmdbApiProvider);
+    FutureProvider.family<List<Season>, int>(
+  (ref, tvShowId) async {
+    final api = ref.read(tmdbApiProvider);
 
-  return api.getTvShowSeasons(tvShowId);
-});
+    return api.getTvShowSeasons(tvShowId);
+  },
+);
 
-final seasonEpisodesProvider = FutureProvider.family<
-    List<Episode>,
-    ({int tvShowId, int seasonNumber})>((ref, params) async {
-  final api = ref.read(tmdbApiProvider);
+final seasonEpisodesProvider =
+    FutureProvider.family<
+        List<Episode>,
+        ({int tvShowId, int seasonNumber})>(
+  (ref, params) async {
+    final api = ref.read(tmdbApiProvider);
 
-  return api.getSeasonEpisodes(
-    params.tvShowId,
-    params.seasonNumber,
-  );
-});
+    return api.getSeasonEpisodes(
+      params.tvShowId,
+      params.seasonNumber,
+    );
+  },
+);
+
+
+final tvShowStartSeasonProvider =
+    FutureProvider.family<int, int>(
+  (ref, tvShowId) async {
+    final repository = ref.read(
+      libraryRepositoryProvider,
+    );
+
+    return repository.getSeriesStartSeason(
+      tmdbId: tvShowId,
+    );
+  },
+);
+
 
 final tvShowWatchStatusProvider =
     FutureProvider.family<bool, int>(
   (ref, tvShowId) async {
-    final watchState = ref.watch(watchProgressProvider);
+    final watchState = ref.watch(
+      watchProgressProvider,
+    );
+
+    if (watchState.isLoading) {
+      return false;
+    }
+
+    final startSeason = await ref.read(
+      tvShowStartSeasonProvider(tvShowId).future,
+    );
 
     final seasons = await ref.read(
       tvShowSeasonsProvider(tvShowId).future,
     );
 
-    final regularSeasons = seasons.where(
-      (season) => season.seasonNumber > 0,
-    );
+    final regularSeasons = seasons
+        .where(
+          (season) =>
+              season.seasonNumber > 0 &&
+              season.seasonNumber >= startSeason,
+        )
+        .toList();
 
     bool hasEpisodes = false;
 
@@ -67,7 +106,9 @@ final tvShowWatchStatusProvider =
       for (final episode in episodes) {
         hasEpisodes = true;
 
-        if (!watchState.episodes.containsKey(episode.id)) {
+        if (!watchState.episodes.containsKey(
+          episode.id,
+        )) {
           return false;
         }
       }
@@ -77,6 +118,7 @@ final tvShowWatchStatusProvider =
   },
 );
 
+
 final tvShowAllEpisodesWatchedProvider =
     FutureProvider.family<bool, int>(
   (ref, tvShowId) async {
@@ -84,13 +126,25 @@ final tvShowAllEpisodesWatchedProvider =
       watchProgressProvider,
     );
 
+    if (watchState.isLoading) {
+      return false;
+    }
+
+    final startSeason = await ref.read(
+      tvShowStartSeasonProvider(tvShowId).future,
+    );
+
     final seasons = await ref.read(
       tvShowSeasonsProvider(tvShowId).future,
     );
 
-    final regularSeasons = seasons.where(
-      (season) => season.seasonNumber > 0,
-    );
+    final regularSeasons = seasons
+        .where(
+          (season) =>
+              season.seasonNumber > 0 &&
+              season.seasonNumber >= startSeason,
+        )
+        .toList();
 
     bool hasEpisodes = false;
 

@@ -15,7 +15,6 @@ class LibraryRepository {
     return user.id;
   }
 
-  // SERIES
   Future<List<Map<String, dynamic>>> getSeries() async {
     final response = await supabase
         .from('series')
@@ -70,7 +69,65 @@ class LibraryRepository {
     return response != null;
   }
 
-  // FILMS
+  Future<int> getSeriesStartSeason({
+    required int tmdbId,
+  }) async {
+    final series = await supabase
+        .from('series')
+        .select('id')
+        .eq('user_id', _userId)
+        .eq('tmdb_id', tmdbId)
+        .maybeSingle();
+
+    if (series == null) {
+      return 1;
+    }
+
+    final tracking = await supabase
+        .from('series_tracking')
+        .select('start_season')
+        .eq('user_id', _userId)
+        .eq('series_id', series['id'] as int)
+        .maybeSingle();
+
+    return tracking?['start_season'] as int? ?? 1;
+  }
+
+  Future<void> setSeriesStartSeason({
+    required int tmdbId,
+    required int startSeason,
+    required String name,
+    String? posterPath,
+  }) async {
+    if (startSeason < 1) {
+      throw ArgumentError(
+        'La saison de départ doit être supérieure à 0.',
+      );
+    }
+
+    await addSeries(
+      tmdbId: tmdbId,
+      name: name,
+      posterPath: posterPath,
+    );
+
+    final series = await supabase
+        .from('series')
+        .select('id')
+        .eq('user_id', _userId)
+        .eq('tmdb_id', tmdbId)
+        .single();
+
+    await supabase.from('series_tracking').upsert(
+      {
+        'user_id': _userId,
+        'series_id': series['id'] as int,
+        'start_season': startSeason,
+      },
+      onConflict: 'user_id,series_id',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getMovies() async {
     final response = await supabase
         .from('movies')

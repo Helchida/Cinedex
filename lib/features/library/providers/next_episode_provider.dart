@@ -20,7 +20,17 @@ class NextEpisode {
 final nextEpisodeProvider =
     FutureProvider.family<NextEpisode?, int>(
   (ref, tvShowId) async {
-    final watchState = ref.watch(watchProgressProvider);
+    final watchState = ref.watch(
+      watchProgressProvider,
+    );
+
+    if (watchState.isLoading) {
+      return null;
+    }
+
+    final startSeason = await ref.read(
+      tvShowStartSeasonProvider(tvShowId).future,
+    );
 
     final seasons = await ref.read(
       tvShowSeasonsProvider(tvShowId).future,
@@ -28,12 +38,16 @@ final nextEpisodeProvider =
 
     final regularSeasons = seasons
         .where(
-          (season) => season.seasonNumber > 0,
+          (season) =>
+              season.seasonNumber > 0 &&
+              season.seasonNumber >= startSeason,
         )
         .toList()
       ..sort(
         (a, b) =>
-            a.seasonNumber.compareTo(b.seasonNumber),
+            a.seasonNumber.compareTo(
+          b.seasonNumber,
+        ),
       );
 
     for (final season in regularSeasons) {
@@ -55,9 +69,12 @@ final nextEpisodeProvider =
         );
 
       for (final episode in sortedEpisodes) {
-        if (!watchState.episodes.containsKey(
+        final watched =
+            watchState.episodes.containsKey(
           episode.id,
-        )) {
+        );
+
+        if (!watched) {
           return NextEpisode(
             tvShowId: tvShowId,
             seasonNumber: season.seasonNumber,
