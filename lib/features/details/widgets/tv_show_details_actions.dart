@@ -207,25 +207,18 @@ class TvShowDetailsActions extends ConsumerWidget {
           icon: const Icon(
             Icons.play_circle_outline,
           ),
-          label: FutureBuilder<int>(
-            future: ref
-                .read(
-                  libraryRepositoryProvider,
-                )
-                .getSeriesStartSeason(
-                  tmdbId: tvShow.id,
-                ),
-            builder: (
-              context,
-              snapshot,
-            ) {
-              final startSeason =
-                  snapshot.data ?? 1;
-
-              return Text(
-                'Suivi à partir de la saison $startSeason',
-              );
-            },
+          label: ref.watch(
+            tvShowStartSeasonProvider(tvShow.id),
+          ).when(
+            loading: () => const Text(
+              'Chargement de la saison...',
+            ),
+            error: (_, __) => const Text(
+              'Suivi à partir de la saison 1',
+            ),
+            data: (startSeason) => Text(
+              'Suivi à partir de la saison $startSeason',
+            ),
           ),
         ),
       ],

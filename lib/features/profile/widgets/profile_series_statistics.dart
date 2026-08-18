@@ -125,13 +125,19 @@ class SeriesStatistics extends ConsumerWidget {
         tvShowSeasonsProvider(tmdbId).future,
       );
 
-      final regularSeasons = seasons.where(
-        (season) => season.seasonNumber > 0,
+      final startSeason = await ref.read(
+        tvShowStartSeasonProvider(tmdbId).future,
+      );
+
+      final relevantSeasons = seasons.where(
+        (season) =>
+            season.seasonNumber > 0 &&
+            season.seasonNumber >= startSeason,
       );
 
       var seriesTotalEpisodes = 0;
 
-      for (final season in regularSeasons) {
+      for (final season in relevantSeasons) {
         seriesTotalEpisodes +=
             season.episodeCount ?? 0;
       }
@@ -139,13 +145,15 @@ class SeriesStatistics extends ConsumerWidget {
       final watchedForSeries =
           watchedEpisodes.values.where(
         (episode) =>
-            episode.tvShowId == tmdbId,
+            episode.tvShowId == tmdbId &&
+            episode.seasonNumber >= startSeason,
       );
 
       final seriesWatchedEpisodes =
           watchedForSeries.length;
 
       totalEpisodes += seriesTotalEpisodes;
+
       totalWatchedEpisodes +=
           seriesWatchedEpisodes;
 
